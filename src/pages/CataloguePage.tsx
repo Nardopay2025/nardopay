@@ -23,12 +23,14 @@ import {
   X
 } from 'lucide-react';
 import { getBaseUrl } from '@/lib/utils';
+import { useDynamicUrls } from '@/hooks/use-dynamic-urls';
 
 const CataloguePage = () => {
   const { catalogueId } = useParams<{ catalogueId: string }>();
   const navigate = useNavigate();
   const { getCatalogue } = useCatalogue();
   const { invoiceSettings } = useInvoiceSettings();
+  const { generateUrl } = useDynamicUrls();
   
   // Helper function to ensure button visibility
   const getButtonStyle = (customColor: string) => {
@@ -117,7 +119,7 @@ const CataloguePage = () => {
           createdAt: '2 days ago',
           totalSales: 47,
           totalRevenue: '$3,456.78',
-          link: `${getBaseUrl()}/catalogue/${catalogueId}`
+          link: generateUrl(`/catalogue/${catalogueId}`)
         });
       }
     }

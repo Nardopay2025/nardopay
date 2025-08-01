@@ -49,12 +49,13 @@ import {
   TrendingDown,
   ArrowRight
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getBaseUrl } from '@/lib/utils';
+import { useDynamicUrls } from '@/hooks/use-dynamic-urls';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -64,6 +65,36 @@ const Dashboard = () => {
   const { subscriptionLinks, addSubscriptionLink } = useSubscriptionLinks();
   const { catalogues, addCatalogue, deleteCatalogue, addItemToCatalogue, removeItemFromCatalogue } = useCatalogue();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const { generateUrl } = useDynamicUrls();
+  
+  // Update URLs after component mounts
+  useEffect(() => {
+    if (generateUrl) {
+      // Update payment links
+      setCreatedLinks(prev => prev.map(link => ({
+        ...link,
+        link: link.link.startsWith('/') ? generateUrl(link.link) : link.link
+      })));
+      
+      // Update donation links
+      setCreatedDonationLinks(prev => prev.map(link => ({
+        ...link,
+        link: link.link.startsWith('/') ? generateUrl(link.link) : link.link
+      })));
+      
+      // Update subscription links
+      setCreatedSubscriptionLinks(prev => prev.map(link => ({
+        ...link,
+        link: link.link.startsWith('/') ? generateUrl(link.link) : link.link
+      })));
+      
+      // Update catalogue links
+      setCreatedCatalogues(prev => prev.map(catalogue => ({
+        ...catalogue,
+        link: catalogue.link.startsWith('/') ? generateUrl(catalogue.link) : catalogue.link
+      })));
+    }
+  }, [generateUrl]);
   
   // Payment Links State
   const [linkFormData, setLinkFormData] = useState({
@@ -179,7 +210,7 @@ const Dashboard = () => {
       description: 'High-quality cotton t-shirt with custom design',
       thankYouMessage: 'Thank you for your purchase!',
       redirectUrl: 'https://my-store.com/success',
-      link: `${getBaseUrl()}/pay/abc123`,
+      link: '/pay/abc123',
       status: 'ACTIVE',
       createdAt: '2 hours ago',
       payments: 1,
@@ -193,7 +224,7 @@ const Dashboard = () => {
       description: 'One-hour business consultation session',
       thankYouMessage: 'Thank you for booking! We\'ll contact you soon.',
       redirectUrl: '',
-      link: `${getBaseUrl()}/pay/def456`,
+      link: '/pay/def456',
       status: 'ACTIVE',
       createdAt: '1 day ago',
       payments: 0,
@@ -207,7 +238,7 @@ const Dashboard = () => {
       description: 'Complete web development course with lifetime access',
       thankYouMessage: 'Welcome to the course! Check your email for access.',
       redirectUrl: 'https://course-platform.com/welcome',
-      link: `${getBaseUrl()}/pay/ghi789`,
+      link: '/pay/ghi789',
       status: 'EXPIRED',
       createdAt: '3 days ago',
       payments: 2,
@@ -226,7 +257,7 @@ const Dashboard = () => {
       currency: 'USD',
       thankYouMessage: 'Thank you for your generous donation! Your support will make a real difference in these children\'s lives.',
       redirectUrl: 'https://example.com/thank-you',
-      link: `${getBaseUrl()}/donate/abc123`,
+      link: '/donate/abc123',
       status: 'ACTIVE',
       createdAt: '1 day ago',
       donations: 47,
@@ -241,7 +272,7 @@ const Dashboard = () => {
       currency: 'USD',
       thankYouMessage: 'Thank you for helping us provide medical care to those in need!',
       redirectUrl: 'https://example.com/medical-thanks',
-      link: `${getBaseUrl()}/donate/def456`,
+      link: '/donate/def456',
       status: 'ACTIVE',
       createdAt: '3 days ago',
       donations: 23,
@@ -261,7 +292,7 @@ const Dashboard = () => {
       trialDays: 7,
       thankYouMessage: 'Welcome to Premium! Your subscription is now active. You\'ll receive a confirmation email shortly.',
       redirectUrl: 'https://example.com/welcome',
-      link: `${getBaseUrl()}/subscribe/abc123`,
+      link: '/subscribe/abc123',
       status: 'ACTIVE',
       createdAt: '2 days ago',
       subscribers: 156,
@@ -278,7 +309,7 @@ const Dashboard = () => {
       trialDays: 14,
       thankYouMessage: 'Welcome to Pro! You now have access to all advanced features.',
       redirectUrl: 'https://example.com/pro-welcome',
-      link: `${getBaseUrl()}/subscribe/def456`,
+      link: '/subscribe/def456',
       status: 'ACTIVE',
       createdAt: '1 week ago',
       subscribers: 42,
@@ -319,7 +350,7 @@ const Dashboard = () => {
       createdAt: '2 days ago',
       totalSales: 47,
       totalRevenue: '$3,456.78',
-      link: `${getBaseUrl()}/catalogue/abc123`
+      link: '/catalogue/abc123'
     },
     {
       id: '2',
@@ -342,7 +373,7 @@ const Dashboard = () => {
       createdAt: '1 week ago',
       totalSales: 23,
       totalRevenue: '$1,234.56',
-      link: `${getBaseUrl()}/catalogue/def456`
+      link: '/catalogue/def456'
     }
   ]);
   
@@ -455,7 +486,7 @@ const Dashboard = () => {
       description: linkFormData.description,
       thankYouMessage: linkFormData.thankYouMessage,
       redirectUrl: linkFormData.redirectUrl,
-      link: `${getBaseUrl()}/pay/${linkId}`,
+      link: generateUrl(`/pay/${linkId}`),
       status: 'ACTIVE',
       createdAt: 'Just now',
       payments: 0,
@@ -488,7 +519,7 @@ const Dashboard = () => {
       currency: donationFormData.currency,
       thankYouMessage: donationFormData.thankYouMessage,
       redirectUrl: donationFormData.redirectUrl,
-      link: `${getBaseUrl()}/donate/${linkId}`,
+      link: generateUrl(`/donate/${linkId}`),
       status: 'ACTIVE',
       createdAt: 'Just now',
       donations: 0,
@@ -524,7 +555,7 @@ const Dashboard = () => {
       trialDays: parseInt(subscriptionFormData.trialDays.toString()),
       thankYouMessage: subscriptionFormData.thankYouMessage,
       redirectUrl: subscriptionFormData.redirectUrl,
-      link: `${getBaseUrl()}/subscribe/${linkId}`,
+      link: generateUrl(`/subscribe/${linkId}`),
       status: 'ACTIVE',
       createdAt: 'Just now',
       subscribers: 0,
@@ -655,7 +686,7 @@ const Dashboard = () => {
       createdAt: 'Just now',
       totalSales: 0,
       totalRevenue: '$0.00',
-      link: `${getBaseUrl()}/catalogue/${catalogueId}`
+      link: generateUrl(`/catalogue/${catalogueId}`)
     };
     
     setCreatedCatalogues(prev => [newCatalogue, ...prev]);

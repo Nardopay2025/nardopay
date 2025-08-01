@@ -38,6 +38,11 @@
 - Automatically detects development vs production environment
 - Uses current domain in production, localhost in development
 
+### src/hooks/use-dynamic-urls.ts
+- Custom hook for dynamic URL generation
+- Updates URLs after component mounts to ensure correct domain
+- Handles both initial state and dynamically generated links
+
 ## Build Optimization
 
 The Vite config now includes:
@@ -50,4 +55,12 @@ The Vite config now includes:
 If deployment still fails:
 1. Check Netlify build logs for specific errors
 2. Ensure all dependencies are in `package.json`
-3. Verify Node.js version compatibility (set to 18 in netlify.toml) 
+3. Verify Node.js version compatibility (set to 18 in netlify.toml)
+
+## URL Generation Fix
+
+The application now uses dynamic URL generation that:
+- Shows localhost URLs in development
+- Automatically uses your actual domain in production
+- Updates all links after the component mounts
+- Works for both existing and newly generated links 
