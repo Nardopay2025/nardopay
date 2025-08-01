@@ -22,6 +22,7 @@ import {
   Globe,
   X
 } from 'lucide-react';
+import { getBaseUrl } from '@/lib/utils';
 
 const CataloguePage = () => {
   const { catalogueId } = useParams<{ catalogueId: string }>();
@@ -116,7 +117,7 @@ const CataloguePage = () => {
           createdAt: '2 days ago',
           totalSales: 47,
           totalRevenue: '$3,456.78',
-          link: `http://localhost:8080/catalogue/${catalogueId}`
+          link: `${getBaseUrl()}/catalogue/${catalogueId}`
         });
       }
     }
