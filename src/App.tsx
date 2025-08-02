@@ -49,6 +49,7 @@ import PaymentPage from "./pages/PaymentPage";
 import DonationPage from "./pages/DonationPage";
 import SubscriptionPage from "./pages/SubscriptionPage";
 import CataloguePage from "./pages/CataloguePage";
+import CatalogueCheckoutPage from "./pages/CatalogueCheckoutPage";
 
 const AppContent = () => {
   const { isAuthenticated } = useAuth();
@@ -98,6 +99,7 @@ const AppContent = () => {
       <Route path="/donate/:linkId" element={<DonationPage />} />
       <Route path="/subscribe/:linkId" element={<SubscriptionPage />} />
       <Route path="/catalogue/:catalogueId" element={<CataloguePage />} />
+      <Route path="/catalogue/:catalogueId/checkout" element={<CatalogueCheckoutPage />} />
       
       {/* Other routes */}
       <Route path="/pricing" element={<Pricing />} />

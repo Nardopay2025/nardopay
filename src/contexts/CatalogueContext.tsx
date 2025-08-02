@@ -7,7 +7,6 @@ interface CatalogueItem {
   price: number;
   currency: string;
   image?: string;
-  category: string;
   inStock: boolean;
 }
 
@@ -15,7 +14,7 @@ interface Catalogue {
   id: string;
   title: string;
   description: string;
-  category: string;
+  currency: string;
   items: CatalogueItem[];
   status: string;
   createdAt: string;

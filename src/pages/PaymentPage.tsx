@@ -30,9 +30,6 @@ const PaymentPage = () => {
     name: '',
     email: '',
     phone: '',
-    bankName: '',
-    accountNumber: '',
-    accountName: '',
     cardNumber: '',
     cardExpiry: '',
     cardCvv: '',
@@ -118,9 +115,58 @@ const PaymentPage = () => {
     }));
   };
 
+  const getCurrencySymbol = (currencyCode: string) => {
+    const currencySymbols: { [key: string]: string } = {
+      'USD': '$',
+      'EUR': '€',
+      'GBP': '£',
+      'RWF': 'RWF ',
+      'ETB': 'ETB ',
+      'MAD': 'MAD ',
+      'EGP': 'EGP ',
+      'XOF': 'CFA ',
+      'XAF': 'CFA ',
+      'BIF': 'BIF ',
+      'CDF': 'CDF ',
+      'MWK': 'MWK ',
+      'ZMW': 'ZMW ',
+      'BWP': 'BWP ',
+      'NAD': 'NAD ',
+      'LSL': 'LSL ',
+      'SZL': 'SZL ',
+      'MUR': 'MUR ',
+      'SCR': 'SCR ',
+      'MGA': 'MGA ',
+      'KMF': 'KMF ',
+      'DJF': 'DJF ',
+      'SOS': 'SOS ',
+      'SDG': 'SDG ',
+      'SSP': 'SSP ',
+      'LYD': 'LYD ',
+      'TND': 'TND ',
+      'DZD': 'DZD ',
+      'MRO': 'MRO ',
+      'GMD': 'GMD ',
+      'GNF': 'GNF ',
+      'SLL': 'SLL ',
+      'LRD': 'LRD ',
+      'STD': 'STD ',
+      'CVE': 'CVE ',
+      'AOA': 'AOA ',
+      'MZN': 'MZN '
+    };
+    return currencySymbols[currencyCode] || currencyCode + ' ';
+  };
+
   const calculateTotal = () => {
-    const baseAmount = parseFloat(paymentData?.amount.replace('$', '') || '0');
+    const amountString = paymentData?.amount || '0';
+    const baseAmount = parseFloat(amountString.replace(/[^\d.]/g, '')) || 0;
     return (baseAmount * quantity).toFixed(2);
+  };
+
+  const formatAmount = (amount: string) => {
+    const currencySymbol = getCurrencySymbol(paymentData?.currency || 'USD');
+    return `${currencySymbol}${amount}`;
   };
 
   const handlePayment = async () => {
@@ -205,7 +251,7 @@ const PaymentPage = () => {
             <div className="space-y-2 mb-6">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Amount:</span>
-                <span className="font-semibold">${calculateTotal()}</span>
+                <span className="font-semibold">{formatAmount(calculateTotal())}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Product:</span>
@@ -397,45 +443,13 @@ const PaymentPage = () => {
                   </div>
                 )}
                 
-                {paymentMethod === 'bank' && (
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="bankName">Bank Name *</Label>
-                      <Input
-                        id="bankName"
-                        placeholder="e.g., Chase Bank, Bank of America"
-                        value={customerData.bankName}
-                        onChange={(e) => handleInputChange('bankName', e.target.value)}
-                      />
-                    </div>
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="accountNumber">Account Number *</Label>
-                        <Input
-                          id="accountNumber"
-                          placeholder="1234567890"
-                          value={customerData.accountNumber}
-                          onChange={(e) => handleInputChange('accountNumber', e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="accountName">Account Holder Name *</Label>
-                        <Input
-                          id="accountName"
-                          placeholder="Account holder's full name"
-                          value={customerData.accountName}
-                          onChange={(e) => handleInputChange('accountName', e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
+
               </div>
 
               {/* Payment Method */}
               <div className="space-y-4">
                 <h3 className="font-semibold text-foreground">Payment Method</h3>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <button
                     onClick={() => setPaymentMethod('card')}
                     className={`p-4 rounded-lg border-2 transition-colors ${
@@ -465,24 +479,8 @@ const PaymentPage = () => {
                       color: invoiceSettings.primaryColor
                     } as React.CSSProperties}
                   >
-                                          <Smartphone className="w-6 h-6 mx-auto mb-2" style={{ color: invoiceSettings.primaryColor }} />
+                    <Smartphone className="w-6 h-6 mx-auto mb-2" style={{ color: invoiceSettings.primaryColor }} />
                     <span className="text-sm font-medium">Mobile Money</span>
-                  </button>
-                  <button
-                    onClick={() => setPaymentMethod('bank')}
-                    className={`p-4 rounded-lg border-2 transition-colors ${
-                      paymentMethod === 'bank'
-                        ? 'border-current bg-current/10'
-                        : 'border-border hover:border-current/50'
-                    }`}
-                    style={{ 
-                      '--tw-border-opacity': paymentMethod === 'bank' ? 1 : 0.5,
-                      '--tw-bg-opacity': paymentMethod === 'bank' ? 0.1 : 0,
-                      color: invoiceSettings.primaryColor
-                    } as React.CSSProperties}
-                  >
-                    <Globe className="w-6 h-6 mx-auto mb-2" style={{ color: invoiceSettings.primaryColor }} />
-                    <span className="text-sm font-medium">Bank Transfer</span>
                   </button>
                 </div>
               </div>
@@ -507,8 +505,7 @@ const PaymentPage = () => {
                 }}
                 disabled={!customerData.name || !customerData.email || 
                   (paymentMethod === 'card' && (!customerData.cardNumber || !customerData.cardExpiry || !customerData.cardCvv || !customerData.cardHolderName)) ||
-                  (paymentMethod === 'mobile' && !customerData.phone) ||
-                  (paymentMethod === 'bank' && (!customerData.bankName || !customerData.accountNumber || !customerData.accountName))
+                  (paymentMethod === 'mobile' && !customerData.phone)
                 }
               >
                 {paymentStatus === 'processing' && (
@@ -520,7 +517,7 @@ const PaymentPage = () => {
                 {paymentStatus !== 'processing' && (
                   <>
                     <CheckCircle className="w-4 h-4 mr-2" />
-                    Pay ${calculateTotal()}
+                    Pay {formatAmount(calculateTotal())}
                   </>
                 )}
               </Button>
@@ -546,7 +543,7 @@ const PaymentPage = () => {
                     <p className="text-sm text-muted-foreground">{paymentData.description}</p>
                   </div>
                   <div className="text-right ml-4">
-                    <div className="text-lg font-bold text-foreground">{paymentData.amount}</div>
+                    <div className="text-lg font-bold text-foreground">{formatAmount(paymentData.amount.replace(/[^\d.]/g, ''))}</div>
                     <div className="text-sm text-muted-foreground">{paymentData.currency}</div>
                   </div>
                 </div>
@@ -581,14 +578,14 @@ const PaymentPage = () => {
                   </div>
                   <div className="text-right">
                     <div className="text-sm text-muted-foreground">Subtotal</div>
-                    <div className="font-semibold text-foreground">${calculateTotal()}</div>
+                    <div className="font-semibold text-foreground">{formatAmount(calculateTotal())}</div>
                   </div>
                 </div>
                 
                 <div className="border-t border-border pt-4">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-foreground">Total</span>
-                    <span className="text-2xl font-bold text-foreground">${calculateTotal()}</span>
+                    <span className="text-2xl font-bold text-foreground">{formatAmount(calculateTotal())}</span>
                   </div>
                 </div>
               </CardContent>

@@ -32,8 +32,6 @@ const SubscriptionPage = () => {
     expiryDate: '',
     cvv: '',
     phoneNumber: '',
-    bankName: '',
-    accountNumber: '',
     email: '',
     name: ''
   });
@@ -83,6 +81,54 @@ const SubscriptionPage = () => {
     }
   };
 
+  const getCurrencySymbol = (currencyCode: string) => {
+    const currencySymbols: { [key: string]: string } = {
+      'USD': '$',
+      'EUR': '€',
+      'GBP': '£',
+      'RWF': 'RWF ',
+      'ETB': 'ETB ',
+      'MAD': 'MAD ',
+      'EGP': 'EGP ',
+      'XOF': 'CFA ',
+      'XAF': 'CFA ',
+      'BIF': 'BIF ',
+      'CDF': 'CDF ',
+      'MWK': 'MWK ',
+      'ZMW': 'ZMW ',
+      'BWP': 'BWP ',
+      'NAD': 'NAD ',
+      'LSL': 'LSL ',
+      'SZL': 'SZL ',
+      'MUR': 'MUR ',
+      'SCR': 'SCR ',
+      'MGA': 'MGA ',
+      'KMF': 'KMF ',
+      'DJF': 'DJF ',
+      'SOS': 'SOS ',
+      'SDG': 'SDG ',
+      'SSP': 'SSP ',
+      'LYD': 'LYD ',
+      'TND': 'TND ',
+      'DZD': 'DZD ',
+      'MRO': 'MRO ',
+      'GMD': 'GMD ',
+      'GNF': 'GNF ',
+      'SLL': 'SLL ',
+      'LRD': 'LRD ',
+      'STD': 'STD ',
+      'CVE': 'CVE ',
+      'AOA': 'AOA ',
+      'MZN': 'MZN '
+    };
+    return currencySymbols[currencyCode] || currencyCode + ' ';
+  };
+
+  const formatAmount = (amount: string) => {
+    const currencySymbol = getCurrencySymbol(subscriptionData?.currency || 'USD');
+    return `${currencySymbol}${amount.replace(/[^\d.]/g, '')}`;
+  };
+
   const handlePayment = async () => {
     if (!formData.email || !formData.name) return;
 
@@ -111,11 +157,11 @@ const SubscriptionPage = () => {
 
   if (!subscriptionData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <Card className="w-full max-w-md">
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card className="w-full max-w-md bg-card/80 backdrop-blur-sm border-border/50">
           <CardContent className="p-6 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p>Loading subscription page...</p>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-primary mx-auto mb-4"></div>
+            <p className="text-foreground">Loading subscription page...</p>
           </CardContent>
         </Card>
       </div>
@@ -124,20 +170,20 @@ const SubscriptionPage = () => {
 
   if (paymentStatus === 'success') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-card/80 backdrop-blur-sm border-border/50">
           <CardContent className="p-8 text-center">
-            <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Subscription Active!</h2>
-            <p className="text-gray-600 mb-6">{subscriptionData.thankYouMessage}</p>
-            <div className="bg-green-50 rounded-lg p-4 mb-6">
+            <CheckCircle className="w-16 h-16 text-green-success mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-foreground mb-2">Subscription Active!</h2>
+            <p className="text-muted-foreground mb-6">{subscriptionData.thankYouMessage}</p>
+            <div className="bg-green-success/10 rounded-lg p-4 mb-6 border border-green-success/20">
               <div className="flex items-center gap-2 mb-2">
-                <Calendar className="w-4 h-4 text-green-600" />
-                <span className="text-sm font-medium text-green-800">Next billing: {subscriptionData.nextBillingDate}</span>
+                <Calendar className="w-4 h-4 text-green-success" />
+                <span className="text-sm font-medium text-foreground">Next billing: {subscriptionData.nextBillingDate}</span>
               </div>
-              <p className="text-xs text-green-700">You can cancel your subscription anytime from your account settings.</p>
+              <p className="text-xs text-muted-foreground">You can cancel your subscription anytime from your account settings.</p>
             </div>
-            <p className="text-sm text-gray-500">Redirecting you shortly...</p>
+            <p className="text-sm text-muted-foreground">Redirecting you shortly...</p>
             <Button 
               onClick={() => window.location.href = subscriptionData.redirectUrl || '/'}
               className="mt-4"
@@ -151,13 +197,18 @@ const SubscriptionPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div 
+      className="min-h-screen p-4"
+      style={{
+        background: `linear-gradient(135deg, ${invoiceSettings.primaryColor}15, ${invoiceSettings.secondaryColor}15, ${invoiceSettings.primaryColor}25)`
+      }}
+    >
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
-            {invoiceSettings.logo ? (
-              <img src={invoiceSettings.logo} alt="Logo" className="w-8 h-8 rounded" />
+            {invoiceSettings.customLogo && invoiceSettings.logoUrl ? (
+              <img src={invoiceSettings.logoUrl} alt="Logo" className="w-8 h-8 rounded" />
             ) : (
               <div 
                 className="w-8 h-8 rounded flex items-center justify-center text-white font-bold text-sm"
@@ -173,13 +224,13 @@ const SubscriptionPage = () => {
               {invoiceSettings.businessName || 'Nardopay'}
             </span>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">{subscriptionData.title}</h1>
-          <p className="text-gray-600 mb-6">{subscriptionData.description}</p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">{subscriptionData.title}</h1>
+          <p className="text-muted-foreground mb-6">{subscriptionData.description}</p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-8">
           {/* Subscription Form */}
-          <Card>
+          <Card className="bg-card/80 backdrop-blur-sm border-border/50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Zap className="w-5 h-5 text-yellow-500" />
@@ -188,14 +239,14 @@ const SubscriptionPage = () => {
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Subscription Details */}
-              <div className="bg-blue-50 rounded-lg p-4 mb-6">
+              <div className="bg-blue-primary/10 rounded-lg p-4 mb-6 border border-blue-primary/20">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-lg font-bold text-blue-900">{subscriptionData.amount}</span>
-                  <Badge variant="secondary" className="bg-blue-200 text-blue-800">
+                  <span className="text-lg font-bold text-foreground">{formatAmount(subscriptionData.amount)}</span>
+                  <Badge variant="secondary" className="bg-blue-primary/20 text-foreground">
                     {getBillingCycleDisplay(subscriptionData.billingCycle)}
                   </Badge>
                 </div>
-                <p className="text-sm text-blue-700">
+                <p className="text-sm text-muted-foreground">
                   Billed every {getBillingCycleText(subscriptionData.billingCycle)}
                   {subscriptionData.trialDays > 0 && (
                     <span className="block mt-1">
@@ -232,7 +283,7 @@ const SubscriptionPage = () => {
               {/* Payment Method */}
               <div className="space-y-4">
                 <Label>Payment Method</Label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <Button
                     variant={paymentMethod === 'card' ? "default" : "outline"}
                     onClick={() => setPaymentMethod('card')}
@@ -256,18 +307,6 @@ const SubscriptionPage = () => {
                   >
                     <Smartphone className="w-4 h-4 mr-2" />
                     Mobile
-                  </Button>
-                  <Button
-                    variant={paymentMethod === 'bank' ? "default" : "outline"}
-                    onClick={() => setPaymentMethod('bank')}
-                    className="h-12"
-                    style={{
-                      backgroundColor: paymentMethod === 'bank' ? (invoiceSettings.primaryColor || '#3b82f6') : undefined,
-                      borderColor: paymentMethod === 'bank' ? (invoiceSettings.primaryColor || '#3b82f6') : undefined
-                    }}
-                  >
-                    <Globe className="w-4 h-4 mr-2" />
-                    Bank
                   </Button>
                 </div>
               </div>
@@ -319,28 +358,7 @@ const SubscriptionPage = () => {
                 </div>
               )}
 
-              {paymentMethod === 'bank' && (
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="bankName">Bank Name</Label>
-                    <Input
-                      id="bankName"
-                      placeholder="Enter bank name"
-                      value={formData.bankName}
-                      onChange={(e) => setFormData({...formData, bankName: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="accountNumber">Account Number</Label>
-                    <Input
-                      id="accountNumber"
-                      placeholder="Enter account number"
-                      value={formData.accountNumber}
-                      onChange={(e) => setFormData({...formData, accountNumber: e.target.value})}
-                    />
-                  </div>
-                </div>
-              )}
+
 
               <Button
                 onClick={handlePayment}
@@ -357,11 +375,11 @@ const SubscriptionPage = () => {
                     Processing...
                   </>
                 ) : (
-                  `Subscribe for ${subscriptionData.amount}/${getBillingCycleText(subscriptionData.billingCycle)}`
+                  `Subscribe for ${formatAmount(subscriptionData.amount)}/${getBillingCycleText(subscriptionData.billingCycle)}`
                 )}
               </Button>
 
-              <p className="text-xs text-gray-500 text-center">
+              <p className="text-xs text-muted-foreground text-center">
                 By subscribing, you agree to our Terms of Service and Privacy Policy. 
                 You can cancel your subscription anytime.
               </p>
@@ -369,7 +387,7 @@ const SubscriptionPage = () => {
           </Card>
 
           {/* Subscription Stats */}
-          <Card>
+          <Card className="bg-card/80 backdrop-blur-sm border-border/50">
             <CardHeader>
               <CardTitle>Subscription Stats</CardTitle>
             </CardHeader>
@@ -393,8 +411,8 @@ const SubscriptionPage = () => {
                 </div>
               </div>
 
-              <div className="pt-4 border-t">
-                <p className="text-sm text-gray-600">
+              <div className="pt-4 border-t border-border">
+                <p className="text-sm text-muted-foreground">
                   <strong>Secure subscription powered by Nardopay</strong>
                 </p>
               </div>

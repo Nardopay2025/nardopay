@@ -31,12 +31,58 @@ const DonationPage = () => {
     cardNumber: '',
     expiryDate: '',
     cvv: '',
-    phoneNumber: '',
-    bankName: '',
-    accountNumber: ''
+    phoneNumber: ''
   });
 
   const presetAmounts = ['10', '25', '50', '100', '250', '500'];
+
+  const getCurrencySymbol = (currencyCode: string) => {
+    const currencySymbols: { [key: string]: string } = {
+      'USD': '$',
+      'EUR': '€',
+      'GBP': '£',
+      'RWF': 'RWF ',
+      'ETB': 'ETB ',
+      'MAD': 'MAD ',
+      'EGP': 'EGP ',
+      'XOF': 'CFA ',
+      'XAF': 'CFA ',
+      'BIF': 'BIF ',
+      'CDF': 'CDF ',
+      'MWK': 'MWK ',
+      'ZMW': 'ZMW ',
+      'BWP': 'BWP ',
+      'NAD': 'NAD ',
+      'LSL': 'LSL ',
+      'SZL': 'SZL ',
+      'MUR': 'MUR ',
+      'SCR': 'SCR ',
+      'MGA': 'MGA ',
+      'KMF': 'KMF ',
+      'DJF': 'DJF ',
+      'SOS': 'SOS ',
+      'SDG': 'SDG ',
+      'SSP': 'SSP ',
+      'LYD': 'LYD ',
+      'TND': 'TND ',
+      'DZD': 'DZD ',
+      'MRO': 'MRO ',
+      'GMD': 'GMD ',
+      'GNF': 'GNF ',
+      'SLL': 'SLL ',
+      'LRD': 'LRD ',
+      'STD': 'STD ',
+      'CVE': 'CVE ',
+      'AOA': 'AOA ',
+      'MZN': 'MZN '
+    };
+    return currencySymbols[currencyCode] || currencyCode + ' ';
+  };
+
+  const formatAmount = (amount: string) => {
+    const currencySymbol = getCurrencySymbol(donationData?.currency || 'USD');
+    return `${currencySymbol}${amount}`;
+  };
 
   useEffect(() => {
     if (linkId) {
@@ -104,11 +150,11 @@ const DonationPage = () => {
 
   if (!donationData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <Card className="w-full max-w-md">
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card className="w-full max-w-md bg-card/80 backdrop-blur-sm border-border/50">
           <CardContent className="p-6 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p>Loading donation page...</p>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-primary mx-auto mb-4"></div>
+            <p className="text-foreground">Loading donation page...</p>
           </CardContent>
         </Card>
       </div>
@@ -117,13 +163,13 @@ const DonationPage = () => {
 
   if (paymentStatus === 'success') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-card/80 backdrop-blur-sm border-border/50">
           <CardContent className="p-8 text-center">
-            <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Donation Successful!</h2>
-            <p className="text-gray-600 mb-6">{donationData.thankYouMessage}</p>
-            <p className="text-sm text-gray-500">Redirecting you shortly...</p>
+            <CheckCircle className="w-16 h-16 text-green-success mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-foreground mb-2">Donation Successful!</h2>
+            <p className="text-muted-foreground mb-6">{donationData.thankYouMessage}</p>
+            <p className="text-sm text-muted-foreground">Redirecting you shortly...</p>
             <Button 
               onClick={() => window.location.href = donationData.redirectUrl || '/'}
               className="mt-4"
@@ -137,7 +183,12 @@ const DonationPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div 
+      className="min-h-screen p-4"
+      style={{
+        background: `linear-gradient(135deg, ${invoiceSettings.primaryColor}15, ${invoiceSettings.secondaryColor}15, ${invoiceSettings.primaryColor}25)`
+      }}
+    >
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
@@ -159,13 +210,13 @@ const DonationPage = () => {
               {invoiceSettings.businessName || 'Nardopay'}
             </span>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">{donationData.title}</h1>
-          <p className="text-gray-600 mb-6">{donationData.description}</p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">{donationData.title}</h1>
+          <p className="text-muted-foreground mb-6">{donationData.description}</p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-8">
           {/* Donation Form */}
-          <Card>
+          <Card className="bg-card/80 backdrop-blur-sm border-border/50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Heart className="w-5 h-5 text-red-500" />
@@ -188,7 +239,7 @@ const DonationPage = () => {
                         borderColor: selectedAmount === amount ? (invoiceSettings.primaryColor || '#3b82f6') : undefined
                       }}
                     >
-                      ${amount}
+                      {formatAmount(amount)}
                     </Button>
                   ))}
                 </div>
@@ -207,7 +258,7 @@ const DonationPage = () => {
               {/* Payment Method */}
               <div className="space-y-4">
                 <Label>Payment Method</Label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <Button
                     variant={paymentMethod === 'card' ? "default" : "outline"}
                     onClick={() => setPaymentMethod('card')}
@@ -231,18 +282,6 @@ const DonationPage = () => {
                   >
                     <Smartphone className="w-4 h-4 mr-2" />
                     Mobile
-                  </Button>
-                  <Button
-                    variant={paymentMethod === 'bank' ? "default" : "outline"}
-                    onClick={() => setPaymentMethod('bank')}
-                    className="h-12"
-                    style={{
-                      backgroundColor: paymentMethod === 'bank' ? (invoiceSettings.primaryColor || '#3b82f6') : undefined,
-                      borderColor: paymentMethod === 'bank' ? (invoiceSettings.primaryColor || '#3b82f6') : undefined
-                    }}
-                  >
-                    <Globe className="w-4 h-4 mr-2" />
-                    Bank
                   </Button>
                 </div>
               </div>
@@ -294,28 +333,7 @@ const DonationPage = () => {
                 </div>
               )}
 
-              {paymentMethod === 'bank' && (
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="bankName">Bank Name</Label>
-                    <Input
-                      id="bankName"
-                      placeholder="Enter bank name"
-                      value={formData.bankName}
-                      onChange={(e) => setFormData({...formData, bankName: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="accountNumber">Account Number</Label>
-                    <Input
-                      id="accountNumber"
-                      placeholder="Enter account number"
-                      value={formData.accountNumber}
-                      onChange={(e) => setFormData({...formData, accountNumber: e.target.value})}
-                    />
-                  </div>
-                </div>
-              )}
+
 
               <Button
                 onClick={handlePayment}
@@ -332,14 +350,14 @@ const DonationPage = () => {
                     Processing...
                   </>
                 ) : (
-                  `Donate $${getAmountToCharge() || '0'}`
+                  `Donate ${formatAmount(getAmountToCharge() || '0')}`
                 )}
               </Button>
             </CardContent>
           </Card>
 
           {/* Progress Card */}
-          <Card>
+          <Card className="bg-card/80 backdrop-blur-sm border-border/50">
             <CardHeader>
               <CardTitle>Campaign Progress</CardTitle>
             </CardHeader>
@@ -354,7 +372,7 @@ const DonationPage = () => {
                   <span className="font-semibold">{donationData.goalAmount}</span>
                 </div>
                 <Progress value={donationData.goalProgress} className="h-3" />
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   {donationData.goalProgress.toFixed(1)}% of goal reached
                 </p>
               </div>
@@ -365,13 +383,13 @@ const DonationPage = () => {
                   <span className="font-semibold">{donationData.donations}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span>Days Left</span>
-                  <span className="font-semibold">15</span>
+                  <span>Campaign Started</span>
+                  <span className="font-semibold">{donationData.createdAt}</span>
                 </div>
               </div>
 
-              <div className="pt-4 border-t">
-                <p className="text-sm text-gray-600">
+              <div className="pt-4 border-t border-border">
+                <p className="text-sm text-muted-foreground">
                   <strong>Secure payment powered by Nardopay</strong>
                 </p>
               </div>

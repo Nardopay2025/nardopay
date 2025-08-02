@@ -47,7 +47,9 @@ import {
   Gift,
   RefreshCw,
   TrendingDown,
-  ArrowRight
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
@@ -65,6 +67,11 @@ const Dashboard = () => {
   const { subscriptionLinks, addSubscriptionLink } = useSubscriptionLinks();
   const { catalogues, addCatalogue, deleteCatalogue, addItemToCatalogue, removeItemFromCatalogue } = useCatalogue();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [addFundsLink, setAddFundsLink] = useState('https://nardopay.com/add-funds/user123');
+  const [copiedAddFundsLink, setCopiedAddFundsLink] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState('all');
+  const [historySearch, setHistorySearch] = useState('');
   const { generateUrl } = useDynamicUrls();
   
   // Update URLs after component mounts
@@ -130,8 +137,7 @@ const Dashboard = () => {
 
   // Send Money State
   const [sendFormData, setSendFormData] = useState({
-    recipientEmail: '',
-    recipientPhone: '',
+    recipient: '',
     amount: '',
     currency: 'USD',
     message: ''
@@ -172,12 +178,13 @@ const Dashboard = () => {
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
   const [showPaymentDetails, setShowPaymentDetails] = useState(false);
   const [refundStatus, setRefundStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
+  const [showCreateLinkModal, setShowCreateLinkModal] = useState(false);
 
   // Catalogue State
   const [catalogueFormData, setCatalogueFormData] = useState({
     title: '',
     description: '',
-    category: 'Fashion'
+    currency: 'USD'
   });
 
   const [catalogueItems, setCatalogueItems] = useState<Array<{
@@ -187,7 +194,6 @@ const Dashboard = () => {
     price: number;
     currency: string;
     image: string;
-    category: string;
     inStock: boolean;
   }>>([]);
 
@@ -195,9 +201,7 @@ const Dashboard = () => {
     name: '',
     description: '',
     price: '',
-    currency: 'USD',
     image: '',
-    category: '',
     inStock: true
   });
   
@@ -389,7 +393,41 @@ const Dashboard = () => {
     { code: "ZAR", name: "South African Rand", symbol: "R" },
     { code: "TZS", name: "Tanzanian Shilling", symbol: "TSh" },
     { code: "UGX", name: "Ugandan Shilling", symbol: "USh" },
-    { code: "ZWL", name: "Zimbabwean Dollar", symbol: "Z$" }
+    { code: "ZWL", name: "Zimbabwean Dollar", symbol: "Z$" },
+    { code: "RWF", name: "Rwandan Franc", symbol: "FRw" },
+    { code: "ETB", name: "Ethiopian Birr", symbol: "Br" },
+    { code: "MAD", name: "Moroccan Dirham", symbol: "MAD" },
+    { code: "EGP", name: "Egyptian Pound", symbol: "E£" },
+    { code: "XOF", name: "West African CFA Franc", symbol: "CFA" },
+    { code: "XAF", name: "Central African CFA Franc", symbol: "FCFA" },
+    { code: "BIF", name: "Burundian Franc", symbol: "FBu" },
+    { code: "CDF", name: "Congolese Franc", symbol: "FC" },
+    { code: "MWK", name: "Malawian Kwacha", symbol: "MK" },
+    { code: "ZMW", name: "Zambian Kwacha", symbol: "ZK" },
+    { code: "BWP", name: "Botswana Pula", symbol: "P" },
+    { code: "NAD", name: "Namibian Dollar", symbol: "N$" },
+    { code: "LSL", name: "Lesotho Loti", symbol: "L" },
+    { code: "SZL", name: "Eswatini Lilangeni", symbol: "E" },
+    { code: "MUR", name: "Mauritian Rupee", symbol: "₨" },
+    { code: "SCR", name: "Seychellois Rupee", symbol: "₨" },
+    { code: "MGA", name: "Malagasy Ariary", symbol: "Ar" },
+    { code: "KMF", name: "Comorian Franc", symbol: "CF" },
+    { code: "DJF", name: "Djiboutian Franc", symbol: "Fdj" },
+    { code: "SOS", name: "Somali Shilling", symbol: "Sh.So." },
+    { code: "SDG", name: "Sudanese Pound", symbol: "ج.س." },
+    { code: "SSP", name: "South Sudanese Pound", symbol: "SSP" },
+    { code: "LYD", name: "Libyan Dinar", symbol: "ل.د" },
+    { code: "TND", name: "Tunisian Dinar", symbol: "د.ت" },
+    { code: "DZD", name: "Algerian Dinar", symbol: "د.ج" },
+    { code: "MRO", name: "Mauritanian Ouguiya", symbol: "UM" },
+    { code: "GMD", name: "Gambian Dalasi", symbol: "D" },
+    { code: "GNF", name: "Guinean Franc", symbol: "FG" },
+    { code: "SLL", name: "Sierra Leonean Leone", symbol: "Le" },
+    { code: "LRD", name: "Liberian Dollar", symbol: "L$" },
+    { code: "STD", name: "São Tomé and Príncipe Dobra", symbol: "Db" },
+    { code: "CVE", name: "Cape Verdean Escudo", symbol: "Esc" },
+    { code: "AOA", name: "Angolan Kwanza", symbol: "Kz" },
+    { code: "MZN", name: "Mozambican Metical", symbol: "MT" }
   ];
 
   // Payment Link Functions
@@ -450,9 +488,8 @@ const Dashboard = () => {
       name: newItemForm.name,
       description: newItemForm.description,
       price: parseFloat(newItemForm.price),
-      currency: newItemForm.currency,
+      currency: catalogueFormData.currency,
       image: newItemForm.image,
-      category: newItemForm.category,
       inStock: newItemForm.inStock
     };
     
@@ -463,9 +500,7 @@ const Dashboard = () => {
       name: '',
       description: '',
       price: '',
-      currency: 'USD',
       image: '',
-      category: '',
       inStock: true
     });
   };
@@ -585,8 +620,7 @@ const Dashboard = () => {
 
   const handleSendMoney = async () => {
     // Validate required fields
-    const recipient = sendFormData.recipientEmail || sendFormData.recipientPhone;
-    if (!recipient || !sendFormData.amount || parseFloat(sendFormData.amount) <= 0) {
+    if (!sendFormData.recipient || !sendFormData.amount || parseFloat(sendFormData.amount) <= 0) {
       setSendError('Please enter a valid email or phone number and amount');
       return;
     }
@@ -601,7 +635,7 @@ const Dashboard = () => {
       // Create new transfer
       const newTransfer = {
         id: Date.now().toString(),
-        recipient: recipient,
+        recipient: sendFormData.recipient,
         amount: parseFloat(sendFormData.amount),
         currency: sendFormData.currency,
         message: sendFormData.message,
@@ -614,8 +648,7 @@ const Dashboard = () => {
 
       // Reset form
       setSendFormData({
-        recipientEmail: '',
-        recipientPhone: '',
+        recipient: '',
         amount: '',
         currency: 'USD',
         message: ''
@@ -680,7 +713,7 @@ const Dashboard = () => {
       id: catalogueId,
       title: catalogueFormData.title,
       description: catalogueFormData.description,
-      category: catalogueFormData.category,
+      currency: catalogueFormData.currency,
       items: catalogueItems,
       status: 'ACTIVE',
       createdAt: 'Just now',
@@ -696,7 +729,7 @@ const Dashboard = () => {
     setCatalogueFormData({
       title: '',
       description: '',
-      category: 'Fashion'
+      currency: 'USD'
     });
     setCatalogueItems([]);
   };
@@ -708,6 +741,129 @@ const Dashboard = () => {
       setTimeout(() => setCopiedLink(null), 2000);
     } catch (err) {
       console.error('Failed to copy: ', err);
+    }
+  };
+
+  const copyAddFundsLink = async () => {
+    try {
+      await navigator.clipboard.writeText(addFundsLink);
+      setCopiedAddFundsLink(true);
+      setTimeout(() => setCopiedAddFundsLink(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy add funds link: ', err);
+    }
+  };
+
+  // Transaction History Data
+  const transactionHistory = [
+    // Payments
+    { id: '1', type: 'payment', category: 'payments', amount: 100.00, description: 'Premium T-Shirt Purchase', clientEmail: 'john.smith@example.com', date: '2024-08-15T10:30:00Z', status: 'completed', direction: 'in' },
+    { id: '2', type: 'payment', category: 'payments', amount: 250.00, description: 'Consultation Service', clientEmail: 'sarah.j@example.com', date: '2024-08-15T14:20:00Z', status: 'completed', direction: 'in' },
+    { id: '3', type: 'payment', category: 'payments', amount: 75.00, description: 'Digital Course', clientEmail: 'mike.brown@example.com', date: '2024-08-14T09:15:00Z', status: 'completed', direction: 'in' },
+    
+    // Subscriptions
+    { id: '4', type: 'subscription', category: 'subscriptions', amount: 29.99, description: 'Premium Membership', clientEmail: 'emily.davis@example.com', date: '2024-08-15T08:00:00Z', status: 'completed', direction: 'in' },
+    { id: '5', type: 'subscription', category: 'subscriptions', amount: 99.99, description: 'Pro Plan', clientEmail: 'david.wilson@example.com', date: '2024-08-14T08:00:00Z', status: 'completed', direction: 'in' },
+    
+    // Donations
+    { id: '6', type: 'donation', category: 'donations', amount: 50.00, description: 'Help Build a School', clientEmail: 'alice.johnson@example.com', date: '2024-08-15T12:00:00Z', status: 'completed', direction: 'in' },
+    { id: '7', type: 'donation', category: 'donations', amount: 25.00, description: 'Medical Supplies Fund', clientEmail: 'bob.miller@example.com', date: '2024-08-14T15:30:00Z', status: 'completed', direction: 'in' },
+    
+    // Funds Added
+    { id: '8', type: 'funds-added', category: 'funds-added', amount: 500.00, description: 'Funds added via link', clientEmail: 'friend@example.com', date: '2024-08-15T16:00:00Z', status: 'completed', direction: 'in' },
+    { id: '9', type: 'funds-added', category: 'funds-added', amount: 1000.00, description: 'Bank transfer', clientEmail: 'family@example.com', date: '2024-08-14T11:00:00Z', status: 'completed', direction: 'in' },
+    
+    // Withdrawals
+    { id: '10', type: 'withdrawal', category: 'withdrawals', amount: 200.00, description: 'Bank withdrawal', clientEmail: null, date: '2024-08-15T09:00:00Z', status: 'completed', direction: 'out' },
+    { id: '11', type: 'withdrawal', category: 'withdrawals', amount: 150.00, description: 'ATM withdrawal', clientEmail: null, date: '2024-08-13T14:00:00Z', status: 'completed', direction: 'out' },
+    
+    // Transfers (Send)
+    { id: '12', type: 'transfer', category: 'transfers', amount: 50.00, description: 'Sent to john@example.com', clientEmail: 'john@example.com', date: '2024-08-15T13:00:00Z', status: 'completed', direction: 'out' },
+    { id: '13', type: 'transfer', category: 'transfers', amount: 25.00, description: 'Sent to +2508012345678', clientEmail: '+2508012345678', date: '2024-08-14T10:00:00Z', status: 'completed', direction: 'out' },
+    
+    // Direct Pay (Withdrawal to others)
+    { id: '14', type: 'direct-pay', category: 'direct-pay', amount: 75.00, description: 'Direct payment to Sarah', clientEmail: 'sarah@example.com', date: '2024-08-15T17:00:00Z', status: 'completed', direction: 'out' },
+    { id: '15', type: 'direct-pay', category: 'direct-pay', amount: 120.00, description: 'Direct payment to Mike', clientEmail: 'mike@example.com', date: '2024-08-13T16:00:00Z', status: 'completed', direction: 'out' },
+  ];
+
+  // Filter transactions based on selected filter and search
+  const filteredTransactions = transactionHistory.filter(transaction => {
+    const matchesFilter = historyFilter === 'all' || transaction.category === historyFilter;
+    const matchesSearch = transaction.description.toLowerCase().includes(historySearch.toLowerCase()) ||
+                         transaction.amount.toString().includes(historySearch) ||
+                         (transaction.clientEmail && transaction.clientEmail.toLowerCase().includes(historySearch.toLowerCase()));
+    return matchesFilter && matchesSearch;
+  });
+
+  // Get transaction type info
+  const getTransactionInfo = (category: string) => {
+    switch (category) {
+      case 'payments':
+        return { icon: CreditCard, color: 'bg-blue-100 text-blue-600', label: 'Payment' };
+      case 'subscriptions':
+        return { icon: Zap, color: 'bg-yellow-100 text-yellow-600', label: 'Subscription' };
+      case 'donations':
+        return { icon: Heart, color: 'bg-red-100 text-red-600', label: 'Donation' };
+      case 'funds-added':
+        return { icon: Plus, color: 'bg-green-100 text-green-600', label: 'Funds Added' };
+      case 'withdrawals':
+        return { icon: Send, color: 'bg-purple-100 text-purple-600', label: 'Withdrawal' };
+      case 'transfers':
+        return { icon: ArrowRight, color: 'bg-orange-100 text-orange-600', label: 'Transfer' };
+      case 'direct-pay':
+        return { icon: Zap, color: 'bg-indigo-100 text-indigo-600', label: 'Direct Pay' };
+      default:
+        return { icon: CreditCard, color: 'bg-gray-100 text-gray-600', label: 'Transaction' };
+    }
+  };
+
+  const deleteLink = (linkId: string, linkType: 'payment' | 'donation' | 'subscription' | 'catalogue') => {
+    switch (linkType) {
+      case 'payment':
+        setCreatedLinks(prev => prev.filter(link => link.id !== linkId));
+        break;
+      case 'donation':
+        setCreatedDonationLinks(prev => prev.filter(link => link.id !== linkId));
+        break;
+      case 'subscription':
+        setCreatedSubscriptionLinks(prev => prev.filter(link => link.id !== linkId));
+        break;
+      case 'catalogue':
+        setCreatedCatalogues(prev => prev.filter(catalogue => catalogue.id !== linkId));
+        break;
+    }
+  };
+
+  const toggleLinkStatus = (linkId: string, linkType: 'payment' | 'donation' | 'subscription' | 'catalogue') => {
+    switch (linkType) {
+      case 'payment':
+        setCreatedLinks(prev => prev.map(link => 
+          link.id === linkId 
+            ? { ...link, status: link.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE' }
+            : link
+        ));
+        break;
+      case 'donation':
+        setCreatedDonationLinks(prev => prev.map(link => 
+          link.id === linkId 
+            ? { ...link, status: link.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE' }
+            : link
+        ));
+        break;
+      case 'subscription':
+        setCreatedSubscriptionLinks(prev => prev.map(link => 
+          link.id === linkId 
+            ? { ...link, status: link.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE' }
+            : link
+        ));
+        break;
+      case 'catalogue':
+        setCreatedCatalogues(prev => prev.map(catalogue => 
+          catalogue.id === linkId 
+            ? { ...catalogue, status: catalogue.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE' }
+            : catalogue
+        ));
+        break;
     }
   };
 
@@ -744,18 +900,13 @@ const Dashboard = () => {
 
   const sidebarItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
-    { id: 'links', label: 'Payment Links', icon: Link2 },
-    { id: 'donations', label: 'Donation Links', icon: Heart },
-    { id: 'subscriptions', label: 'Subscription Links', icon: Zap },
-    { id: 'catalogue', label: 'Catalogue', icon: FileText },
-    { id: 'send', label: 'Send', icon: Send },
-    { id: 'direct-pay', label: 'Direct Pay', icon: Zap },
-    { id: 'wallet', label: 'Wallet', icon: Wallet },
-    { id: 'payments', label: 'Payments', icon: CreditCard },
-    { id: 'payouts', label: 'Payouts', icon: Send },
+    { id: 'create-link', label: 'Create a Link', icon: Plus },
+    { id: 'send-money', label: 'Send Money', icon: Send },
+    { id: 'make-payment', label: 'Make Payment', icon: CreditCard },
+    { id: 'deposit', label: 'Deposit', icon: PiggyBank },
+    { id: 'withdraw', label: 'Withdraw', icon: ArrowUpRight },
     { id: 'developers', label: 'Developers', icon: Code },
     { id: 'settings', label: 'Settings', icon: Settings },
-    { id: 'live-data', label: 'Viewing live data', icon: Eye, special: true },
   ];
 
   const paymentData = [
@@ -852,6 +1003,463 @@ const Dashboard = () => {
 
   const renderContent = () => {
     switch (activeTab) {
+      case 'create-link':
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h1 className="text-3xl font-bold text-foreground">Create a Link</h1>
+            </div>
+            
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* Payment Links */}
+              <Card 
+                className="bg-card/80 backdrop-blur-sm border-border/50 hover:shadow-lg transition-all duration-300 cursor-pointer group"
+                onClick={() => setActiveTab('links')}
+              >
+                <CardContent className="p-6 text-center">
+                  <div className="w-16 h-16 bg-blue-primary/20 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                    <Link2 className="w-8 h-8 text-blue-primary" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-foreground mb-2">Payment Links</h3>
+                  <p className="text-muted-foreground text-sm mb-4">
+                    Create secure payment links for products and services. Accept one-time payments from customers worldwide.
+                  </p>
+                  <Button variant="outline" className="w-full">
+                    Create Payment Link
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Donation Links */}
+              <Card 
+                className="bg-card/80 backdrop-blur-sm border-border/50 hover:shadow-lg transition-all duration-300 cursor-pointer group"
+                onClick={() => setActiveTab('donations')}
+              >
+                <CardContent className="p-6 text-center">
+                  <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                    <Heart className="w-8 h-8 text-red-500" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-foreground mb-2">Donation Links</h3>
+                  <p className="text-muted-foreground text-sm mb-4">
+                    Set up donation campaigns and fundraising pages. Accept contributions from supporters and donors.
+                  </p>
+                  <Button variant="outline" className="w-full">
+                    Create Donation Link
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Subscription Links */}
+              <Card 
+                className="bg-card/80 backdrop-blur-sm border-border/50 hover:shadow-lg transition-all duration-300 cursor-pointer group"
+                onClick={() => setActiveTab('subscriptions')}
+              >
+                <CardContent className="p-6 text-center">
+                  <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                    <Zap className="w-8 h-8 text-green-500" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-foreground mb-2">Subscription Links</h3>
+                  <p className="text-muted-foreground text-sm mb-4">
+                    Create recurring payment links for subscriptions and memberships. Automate billing cycles.
+                  </p>
+                  <Button variant="outline" className="w-full">
+                    Create Subscription Link
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Catalogue */}
+              <Card 
+                className="bg-card/80 backdrop-blur-sm border-border/50 hover:shadow-lg transition-all duration-300 cursor-pointer group"
+                onClick={() => setActiveTab('catalogue')}
+              >
+                <CardContent className="p-6 text-center">
+                  <div className="w-16 h-16 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                    <ShoppingBag className="w-8 h-8 text-purple-500" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-foreground mb-2">Catalogue</h3>
+                  <p className="text-muted-foreground text-sm mb-4">
+                    Create product catalogues with multiple items. Let customers browse and purchase from your collection.
+                  </p>
+                  <Button variant="outline" className="w-full">
+                    Create Catalogue
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        );
+      case 'send-money':
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h1 className="text-3xl font-bold text-foreground">Send Money</h1>
+            </div>
+            
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Send to Nardopay Wallet */}
+              <Card 
+                className="bg-card/80 backdrop-blur-sm border-border/50 hover:shadow-lg transition-all duration-300 cursor-pointer group"
+                onClick={() => setActiveTab('send')}
+              >
+                <CardContent className="p-6 text-center">
+                  <div className="w-16 h-16 bg-blue-primary/20 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                    <Wallet className="w-8 h-8 text-blue-primary" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-foreground mb-2">Nardopay Wallet</h3>
+                  <p className="text-muted-foreground text-sm mb-4">
+                    Send money to other Nardopay users instantly. Transfer funds directly to their Nardopay wallet using email or phone number.
+                  </p>
+                  <Button variant="outline" className="w-full">
+                    Send to Nardopay Wallet
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Send to External Wallet */}
+              <Card 
+                className="bg-card/80 backdrop-blur-sm border-border/50 hover:shadow-lg transition-all duration-300 cursor-pointer group"
+                onClick={() => setActiveTab('direct-pay')}
+              >
+                <CardContent className="p-6 text-center">
+                  <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                    <Globe className="w-8 h-8 text-green-500" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-foreground mb-2">External Wallet</h3>
+                  <p className="text-muted-foreground text-sm mb-4">
+                    Send money to external wallets and payment methods. Support for bank transfers, mobile money, and other payment services.
+                  </p>
+                  <Button variant="outline" className="w-full">
+                    Send to External Wallet
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        );
+      case 'deposit':
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h1 className="text-3xl font-bold text-foreground">Deposit</h1>
+            </div>
+            
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Deposit Directly */}
+              <Card className="bg-card/80 backdrop-blur-sm border-border/50">
+                <CardContent className="p-6">
+                  <div className="text-center mb-6">
+                    <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <ArrowDownLeft className="w-8 h-8 text-green-500" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-foreground mb-2">Deposit Directly</h3>
+                    <p className="text-muted-foreground text-sm">
+                      Add funds to your Nardopay account directly. Use your preferred payment method to top up your wallet balance.
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="depositAmount">Amount</Label>
+                      <Input
+                        id="depositAmount"
+                        type="number"
+                        placeholder="0.00"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="depositCurrency">Currency</Label>
+                      <Select>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select currency" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="USD">USD - US Dollar</SelectItem>
+                          <SelectItem value="EUR">EUR - Euro</SelectItem>
+                          <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                          <SelectItem value="RWF">RWF - Rwandan Franc</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="depositMethod">Payment Method</Label>
+                      <Select>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select payment method" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="card">Credit/Debit Card</SelectItem>
+                          <SelectItem value="bank">Bank Transfer</SelectItem>
+                          <SelectItem value="mobile">Mobile Money</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button className="w-full bg-green-500 hover:bg-green-600">
+                      <ArrowDownLeft className="w-4 h-4 mr-2" />
+                      Deposit Funds
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Create Deposit Link */}
+              <Card 
+                className="bg-card/80 backdrop-blur-sm border-border/50 hover:shadow-lg transition-all duration-300 cursor-pointer group"
+                onClick={() => setActiveTab('create-link')}
+              >
+                <CardContent className="p-6 text-center">
+                  <div className="w-16 h-16 bg-blue-primary/20 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                    <Link2 className="w-8 h-8 text-blue-primary" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-foreground mb-2">Create Deposit Link</h3>
+                  <p className="text-muted-foreground text-sm mb-4">
+                    Generate a shareable deposit link for others to add funds to your account. Perfect for receiving payments from clients or supporters.
+                  </p>
+                  <Button variant="outline" className="w-full">
+                    Create Deposit Link
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        );
+      case 'withdraw':
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h1 className="text-3xl font-bold text-foreground">Withdraw</h1>
+            </div>
+            
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Withdraw to Bank */}
+              <Card className="bg-card/80 backdrop-blur-sm border-border/50">
+                <CardContent className="p-6">
+                  <div className="text-center mb-6">
+                    <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <CreditCard className="w-8 h-8 text-blue-500" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-foreground mb-2">Withdraw to Bank</h3>
+                    <p className="text-muted-foreground text-sm">
+                      Transfer funds from your Nardopay wallet to your bank account. Fast and secure bank transfers to your linked account.
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="withdrawAmount">Amount</Label>
+                      <Input
+                        id="withdrawAmount"
+                        type="number"
+                        placeholder="0.00"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="bankAccount">Bank Account</Label>
+                      <Select>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select bank account" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="account1">Bank of America - ****1234</SelectItem>
+                          <SelectItem value="account2">Chase Bank - ****5678</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button className="w-full bg-blue-500 hover:bg-blue-600">
+                      <ArrowUpRight className="w-4 h-4 mr-2" />
+                      Withdraw to Bank
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Withdraw to Mobile Money */}
+              <Card className="bg-card/80 backdrop-blur-sm border-border/50">
+                <CardContent className="p-6">
+                  <div className="text-center mb-6">
+                    <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Smartphone className="w-8 h-8 text-green-500" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-foreground mb-2">Withdraw to Mobile Money</h3>
+                    <p className="text-muted-foreground text-sm">
+                      Withdraw funds to your mobile money account. Instant transfers to M-Pesa, Airtel Money, and other mobile wallets.
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="mobileAmount">Amount</Label>
+                      <Input
+                        id="mobileAmount"
+                        type="number"
+                        placeholder="0.00"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="mobileProvider">Mobile Money Provider</Label>
+                      <Select>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select provider" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="mpesa">M-Pesa</SelectItem>
+                          <SelectItem value="airtel">Airtel Money</SelectItem>
+                          <SelectItem value="mtn">MTN Mobile Money</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="phoneNumber">Phone Number</Label>
+                      <Input
+                        id="phoneNumber"
+                        type="tel"
+                        placeholder="+1234567890"
+                        className="mt-1"
+                      />
+                    </div>
+                    <Button className="w-full bg-green-500 hover:bg-green-600">
+                      <ArrowUpRight className="w-4 h-4 mr-2" />
+                      Withdraw to Mobile Money
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        );
+      case 'make-payment':
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h1 className="text-3xl font-bold text-foreground">Make Payment</h1>
+            </div>
+            
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Virtual Card */}
+              <Card className="bg-card/80 backdrop-blur-sm border-border/50">
+                <CardContent className="p-6">
+                  <div className="text-center mb-6">
+                    <div className="w-16 h-16 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <CreditCard className="w-8 h-8 text-purple-500" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-foreground mb-2">Virtual Card</h3>
+                    <p className="text-muted-foreground text-sm">
+                      Use your Nardopay virtual card for online and in-store purchases. Secure, instant, and accepted worldwide.
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg p-4 text-white">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm">Virtual Card</span>
+                        <span className="text-sm">Nardopay</span>
+                      </div>
+                      <div className="text-lg font-mono mb-2">**** **** **** 1234</div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span>John Doe</span>
+                        <span>12/25</span>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <Label htmlFor="cardAmount">Amount</Label>
+                        <Input
+                          id="cardAmount"
+                          type="number"
+                          placeholder="0.00"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="cardCurrency">Currency</Label>
+                        <Select>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select currency" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="USD">USD - US Dollar</SelectItem>
+                            <SelectItem value="EUR">EUR - Euro</SelectItem>
+                            <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                            <SelectItem value="RWF">RWF - Rwandan Franc</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button className="w-full bg-purple-500 hover:bg-purple-600">
+                        <CreditCard className="w-4 h-4 mr-2" />
+                        Pay with Virtual Card
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Direct Payment on Merchant Code */}
+              <Card className="bg-card/80 backdrop-blur-sm border-border/50">
+                <CardContent className="p-6">
+                  <div className="text-center mb-6">
+                    <div className="w-16 h-16 bg-orange-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <ShoppingBag className="w-8 h-8 text-orange-500" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-foreground mb-2">Merchant Code Payment</h3>
+                    <p className="text-muted-foreground text-sm">
+                      Make direct payments to merchants using their unique merchant code. Quick and secure point-of-sale transactions.
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="merchantCode">Merchant Code</Label>
+                      <Input
+                        id="merchantCode"
+                        placeholder="Enter merchant code"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="merchantAmount">Amount</Label>
+                      <Input
+                        id="merchantAmount"
+                        type="number"
+                        placeholder="0.00"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="merchantCurrency">Currency</Label>
+                      <Select>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select currency" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="USD">USD - US Dollar</SelectItem>
+                          <SelectItem value="EUR">EUR - Euro</SelectItem>
+                          <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                          <SelectItem value="RWF">RWF - Rwandan Franc</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="merchantReference">Reference (Optional)</Label>
+                      <Input
+                        id="merchantReference"
+                        placeholder="Payment reference"
+                        className="mt-1"
+                      />
+                    </div>
+                    <Button className="w-full bg-orange-500 hover:bg-orange-600">
+                      <ShoppingBag className="w-4 h-4 mr-2" />
+                      Pay Merchant
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        );
       case 'links':
         return (
           <div className="space-y-6">
@@ -1029,7 +1637,7 @@ const Dashboard = () => {
                             </div>
                             
                             {/* Payment Methods */}
-                            <div className="grid grid-cols-3 gap-1 mb-3">
+                            <div className="grid grid-cols-2 gap-1 mb-3">
                               <div className="p-2 border border-gray-600 rounded text-center">
                                 <div className="w-4 h-4 mx-auto mb-1" style={{ color: invoiceSettings.primaryColor }}>
                                   <CreditCard className="w-full h-full" />
@@ -1041,12 +1649,6 @@ const Dashboard = () => {
                                   <Smartphone className="w-full h-full" />
                                 </div>
                                 <div className="text-xs text-gray-300">Mobile</div>
-                              </div>
-                              <div className="p-2 border border-gray-600 rounded text-center">
-                                <div className="w-4 h-4 mx-auto mb-1" style={{ color: invoiceSettings.primaryColor }}>
-                                  <Globe className="w-full h-full" />
-                                </div>
-                                <div className="text-xs text-gray-300">Bank</div>
                               </div>
                             </div>
                             
@@ -1181,6 +1783,32 @@ const Dashboard = () => {
                         >
                           <ExternalLink className="w-4 h-4" />
                         </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => toggleLinkStatus(link.id, 'payment')}
+                          className={link.status === 'ACTIVE' ? 'text-yellow-500 hover:text-yellow-600' : 'text-green-success hover:text-green-600'}
+                        >
+                          {link.status === 'ACTIVE' ? (
+                            <>
+                              <Pause className="w-4 h-4 mr-1" />
+                              Pause
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="w-4 h-4 mr-1" />
+                              Activate
+                            </>
+                          )}
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => deleteLink(link.id, 'payment')}
+                          className="text-destructive hover:text-destructive/80"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -1314,8 +1942,8 @@ const Dashboard = () => {
                         <div className="bg-gray-900 rounded-lg p-3 mb-4">
                           <div className="text-xs font-bold text-white mb-2">Progress</div>
                           <div className="flex justify-between items-center mb-2">
-                            <span className="text-white text-sm">Raised: $0</span>
-                            <span className="text-white text-sm">Goal: ${donationFormData.goalAmount || '0'}</span>
+                            <span className="text-white text-sm">Raised: {currencies.find(c => c.code === donationFormData.currency)?.symbol || '$'}0</span>
+                            <span className="text-white text-sm">Goal: {currencies.find(c => c.code === donationFormData.currency)?.symbol || '$'}{donationFormData.goalAmount || '0'}</span>
                           </div>
                           <div className="w-full bg-gray-700 rounded-full h-2">
                             <div className="bg-red-500 h-2 rounded-full" style={{ width: '0%' }}></div>
@@ -1326,9 +1954,9 @@ const Dashboard = () => {
                           <div className="text-center">
                             <div className="text-2xl font-bold text-white mb-2">Select Amount</div>
                             <div className="grid grid-cols-3 gap-2 mb-4">
-                              {['$10', '$25', '$50', '$100', '$250', '$500'].map((amount) => (
+                              {['10', '25', '50', '100', '250', '500'].map((amount) => (
                                 <button key={amount} className="bg-gray-700 text-white p-2 rounded text-sm">
-                                  {amount}
+                                  {currencies.find(c => c.code === donationFormData.currency)?.symbol || '$'}{amount}
                                 </button>
                               ))}
                             </div>
@@ -1392,6 +2020,32 @@ const Dashboard = () => {
                           onClick={() => window.open(link.link, '_blank')}
                         >
                           <ExternalLink className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => toggleLinkStatus(link.id, 'donation')}
+                          className={link.status === 'ACTIVE' ? 'text-yellow-500 hover:text-yellow-600' : 'text-green-success hover:text-green-600'}
+                        >
+                          {link.status === 'ACTIVE' ? (
+                            <>
+                              <Pause className="w-4 h-4 mr-1" />
+                              Pause
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="w-4 h-4 mr-1" />
+                              Activate
+                            </>
+                          )}
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => deleteLink(link.id, 'donation')}
+                          className="text-destructive hover:text-destructive/80"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>
@@ -1553,7 +2207,7 @@ const Dashboard = () => {
                         <div className="bg-gray-900 rounded-lg p-3 mb-4">
                           <div className="text-xs font-bold text-white mb-2">Pricing</div>
                           <div className="flex justify-between items-center mb-2">
-                            <span className="text-white text-sm">${subscriptionFormData.amount || '0'}</span>
+                            <span className="text-white text-sm">{currencies.find(c => c.code === subscriptionFormData.currency)?.symbol || '$'}{subscriptionFormData.amount || '0'}</span>
                             <span className="text-white text-sm">per {subscriptionFormData.billingCycle || 'month'}</span>
                           </div>
                           {subscriptionFormData.trialDays > 0 && (
@@ -1626,6 +2280,32 @@ const Dashboard = () => {
                         >
                           <ExternalLink className="w-4 h-4" />
                         </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => toggleLinkStatus(link.id, 'subscription')}
+                          className={link.status === 'ACTIVE' ? 'text-yellow-500 hover:text-yellow-600' : 'text-green-success hover:text-green-600'}
+                        >
+                          {link.status === 'ACTIVE' ? (
+                            <>
+                              <Pause className="w-4 h-4 mr-1" />
+                              Pause
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="w-4 h-4 mr-1" />
+                              Activate
+                            </>
+                          )}
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => deleteLink(link.id, 'subscription')}
+                          className="text-destructive hover:text-destructive/80"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -1677,22 +2357,20 @@ const Dashboard = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="catalogueCategory">Category</Label>
-                    <Select value={catalogueFormData.category} onValueChange={(value) => handleCatalogueInputChange('category', value)}>
+                    <Label htmlFor="catalogueCurrency">Currency</Label>
+                    <Select value={catalogueFormData.currency} onValueChange={(value) => handleCatalogueInputChange('currency', value)}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Fashion">Fashion</SelectItem>
-                        <SelectItem value="Electronics">Electronics</SelectItem>
-                        <SelectItem value="Food & Beverage">Food & Beverage</SelectItem>
-                        <SelectItem value="Services">Services</SelectItem>
-                        <SelectItem value="Home & Garden">Home & Garden</SelectItem>
-                        <SelectItem value="Sports">Sports</SelectItem>
-                        <SelectItem value="Books">Books</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
+                        {currencies.map((currency) => (
+                          <SelectItem key={currency.code} value={currency.code}>
+                            {currency.code} - {currency.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-muted-foreground">This currency will apply to all products in your catalogue</p>
                   </div>
 
                   <div className="border-t pt-6">
@@ -1731,16 +2409,6 @@ const Dashboard = () => {
                         />
                       </div>
 
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="itemCategory">Category</Label>
-                          <Input
-                            id="itemCategory"
-                            placeholder="e.g., Clothing, Electronics"
-                            value={newItemForm.category}
-                            onChange={(e) => handleNewItemInputChange('category', e.target.value)}
-                          />
-                        </div>
                         <div className="space-y-2">
                           <Label htmlFor="itemImage">Image URL</Label>
                           <Input
@@ -1749,7 +2417,6 @@ const Dashboard = () => {
                             value={newItemForm.image}
                             onChange={(e) => handleNewItemInputChange('image', e.target.value)}
                           />
-                        </div>
                       </div>
 
                       <div className="flex items-center space-x-2">
@@ -1846,7 +2513,7 @@ const Dashboard = () => {
                                   <div className="text-white text-sm font-medium">{item.name}</div>
                                   <div className="text-gray-400 text-xs">{item.description}</div>
                                 </div>
-                                <div className="text-white font-bold">${item.price}</div>
+                                <div className="text-white font-bold">{currencies.find(c => c.code === catalogueFormData.currency)?.symbol || '$'}{item.price}</div>
                               </div>
                             </div>
                           ))}
@@ -1912,6 +2579,32 @@ const Dashboard = () => {
                         >
                           <ExternalLink className="w-4 h-4" />
                         </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => toggleLinkStatus(catalogue.id, 'catalogue')}
+                          className={catalogue.status === 'ACTIVE' ? 'text-yellow-500 hover:text-yellow-600' : 'text-green-success hover:text-green-600'}
+                        >
+                          {catalogue.status === 'ACTIVE' ? (
+                            <>
+                              <Pause className="w-4 h-4 mr-1" />
+                              Pause
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="w-4 h-4 mr-1" />
+                              Activate
+                            </>
+                          )}
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => deleteLink(catalogue.id, 'catalogue')}
+                          className="text-destructive hover:text-destructive/80"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -1930,8 +2623,7 @@ const Dashboard = () => {
                 variant="cta"
                 onClick={() => {
                   setSendFormData({
-                    recipientEmail: '',
-                    recipientPhone: '',
+                    recipient: '',
                     amount: '',
                     currency: 'USD',
                     message: ''
@@ -1975,27 +2667,15 @@ const Dashboard = () => {
                 {/* Recipient Information */}
                 <div className="space-y-4">
                   <h4 className="font-medium text-foreground">Recipient Information</h4>
-                  <div className="grid md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">Email Address</label>
+                    <label className="block text-sm font-medium text-foreground mb-2">Recipient</label>
                       <input 
-                        type="email" 
-                        placeholder="recipient@example.com" 
-                        value={sendFormData.recipientEmail}
-                        onChange={(e) => handleSendInputChange('recipientEmail', e.target.value)}
+                      type="text" 
+                      placeholder="Email or phone number" 
+                      value={sendFormData.recipient}
+                      onChange={(e) => handleSendInputChange('recipient', e.target.value)}
                         className="w-full p-3 bg-secondary/50 border border-border rounded-lg text-foreground"
                       />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">Phone Number</label>
-                      <input 
-                        type="tel" 
-                        placeholder="+1234567890" 
-                        value={sendFormData.recipientPhone}
-                        onChange={(e) => handleSendInputChange('recipientPhone', e.target.value)}
-                        className="w-full p-3 bg-secondary/50 border border-border rounded-lg text-foreground"
-                      />
-                    </div>
                   </div>
                   <p className="text-sm text-muted-foreground">Enter email or phone number of the Nardopay account</p>
                   <p className="text-sm text-muted-foreground">Transfer will be made from your Nardopay balance</p>
@@ -2012,12 +2692,47 @@ const Dashboard = () => {
                         onChange={(e) => handleSendInputChange('currency', e.target.value)}
                         className="p-3 bg-secondary/50 border border-border border-r-0 rounded-l-lg text-foreground"
                       >
-                        <option value="USD">USD</option>
-                        <option value="EUR">EUR</option>
-                        <option value="GBP">GBP</option>
-                        <option value="NGN">NGN</option>
-                        <option value="KES">KES</option>
-                        <option value="GHS">GHS</option>
+                        <option value="USD">USD - US Dollar</option>
+                        <option value="EUR">EUR - Euro</option>
+                        <option value="GBP">GBP - British Pound</option>
+                        <option value="RWF">RWF - Rwandan Franc</option>
+                        <option value="ETB">ETB - Ethiopian Birr</option>
+                        <option value="MAD">MAD - Moroccan Dirham</option>
+                        <option value="EGP">EGP - Egyptian Pound</option>
+                        <option value="XOF">XOF - West African CFA</option>
+                        <option value="XAF">XAF - Central African CFA</option>
+                        <option value="BIF">BIF - Burundian Franc</option>
+                        <option value="CDF">CDF - Congolese Franc</option>
+                        <option value="MWK">MWK - Malawian Kwacha</option>
+                        <option value="ZMW">ZMW - Zambian Kwacha</option>
+                        <option value="BWP">BWP - Botswana Pula</option>
+                        <option value="NAD">NAD - Namibian Dollar</option>
+                        <option value="LSL">LSL - Lesotho Loti</option>
+                        <option value="SZL">SZL - Swazi Lilangeni</option>
+                        <option value="MUR">MUR - Mauritian Rupee</option>
+                        <option value="SCR">SCR - Seychellois Rupee</option>
+                        <option value="MGA">MGA - Malagasy Ariary</option>
+                        <option value="KMF">KMF - Comorian Franc</option>
+                        <option value="DJF">DJF - Djiboutian Franc</option>
+                        <option value="SOS">SOS - Somali Shilling</option>
+                        <option value="SDG">SDG - Sudanese Pound</option>
+                        <option value="SSP">SSP - South Sudanese Pound</option>
+                        <option value="LYD">LYD - Libyan Dinar</option>
+                        <option value="TND">TND - Tunisian Dinar</option>
+                        <option value="DZD">DZD - Algerian Dinar</option>
+                        <option value="MRO">MRO - Mauritanian Ouguiya</option>
+                        <option value="GMD">GMD - Gambian Dalasi</option>
+                        <option value="GNF">GNF - Guinean Franc</option>
+                        <option value="SLL">SLL - Sierra Leonean Leone</option>
+                        <option value="LRD">LRD - Liberian Dollar</option>
+                        <option value="STD">STD - São Tomé and Príncipe Dobra</option>
+                        <option value="CVE">CVE - Cape Verdean Escudo</option>
+                        <option value="AOA">AOA - Angolan Kwanza</option>
+                        <option value="MZN">MZN - Mozambican Metical</option>
+                        <option value="NGN">NGN - Nigerian Naira</option>
+                        <option value="KES">KES - Kenyan Shilling</option>
+                        <option value="GHS">GHS - Ghanaian Cedi</option>
+                        <option value="ZAR">ZAR - South African Rand</option>
                       </select>
                       <input 
                         type="number" 
@@ -2407,7 +3122,7 @@ const Dashboard = () => {
               </Button>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid md:grid-cols-1 gap-6">
               <Card className="bg-card/80 backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -2423,25 +3138,6 @@ const Dashboard = () => {
                   <Button variant="outline" className="w-full" onClick={() => window.open('/products/direct-pay', '_blank')}>
                     <Send className="w-4 h-4 mr-2" />
                     Start Direct Pay
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-card/80 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Wallet className="w-5 h-5" />
-                    Deposit to Account
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground mb-4">
-                    Deposit money to any Nardopay account holder. No account required for you - 
-                    just send money to someone who has a Nardopay account.
-                  </p>
-                  <Button variant="outline" className="w-full" onClick={() => window.open('/products/direct-pay', '_blank')}>
-                    <Wallet className="w-4 h-4 mr-2" />
-                    Make Deposit
                   </Button>
                 </CardContent>
               </Card>
@@ -2476,18 +3172,18 @@ const Dashboard = () => {
               </Button>
             </div>
 
-            {/* Wallet Cards */}
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Wallet Card */}
+            <div className="grid md:grid-cols-1 gap-6">
               <Card className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white cursor-pointer hover:scale-105 transition-transform">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-3 mb-4">
-                    <Users className="w-8 h-8" />
+                    <Wallet className="w-8 h-8" />
                     <div>
-                      <h3 className="font-semibold">Personal Wallet</h3>
-                      <p className="text-blue-100 text-sm">Daily expenses</p>
+                      <h3 className="font-semibold">Nardopay Account</h3>
+                      <p className="text-blue-100 text-sm">Your wallet is your Nardopay account</p>
                     </div>
                   </div>
-                  <div className="text-2xl font-bold mb-2">$1,250.75</div>
+                  <div className="text-2xl font-bold mb-2">$25,701.50</div>
                   <div className="text-blue-100 text-sm">Card: 4532 **** **** 1234</div>
                   <div className="flex gap-2 mt-4">
                     <Badge className="bg-white/20 text-white text-xs">Visa</Badge>
@@ -2495,64 +3191,10 @@ const Dashboard = () => {
                   </div>
                 </CardContent>
               </Card>
-
-              <Card className="bg-gradient-to-r from-green-600 to-emerald-600 text-white cursor-pointer hover:scale-105 transition-transform">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <Target className="w-8 h-8" />
-                    <div>
-                      <h3 className="font-semibold">Business Wallet</h3>
-                      <p className="text-green-100 text-sm">Business transactions</p>
-                    </div>
-                  </div>
-                  <div className="text-2xl font-bold mb-2">$8,750.50</div>
-                  <div className="text-green-100 text-sm">Card: 5421 **** **** 5678</div>
-                  <div className="flex gap-2 mt-4">
-                    <Badge className="bg-white/20 text-white text-xs">Mastercard</Badge>
-                    <Badge className="bg-white/20 text-white text-xs">Active</Badge>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-r from-purple-600 to-pink-600 text-white cursor-pointer hover:scale-105 transition-transform">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <PiggyBank className="w-8 h-8" />
-                    <div>
-                      <h3 className="font-semibold">Savings Wallet</h3>
-                      <p className="text-purple-100 text-sm">Long-term savings</p>
-                    </div>
-                  </div>
-                  <div className="text-2xl font-bold mb-2">$15,250.00</div>
-                  <div className="text-purple-100 text-sm">Card: 4111 **** **** 9012</div>
-                  <div className="flex gap-2 mt-4">
-                    <Badge className="bg-white/20 text-white text-xs">Visa</Badge>
-                    <Badge className="bg-white/20 text-white text-xs">Active</Badge>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-r from-orange-600 to-red-600 text-white cursor-pointer hover:scale-105 transition-transform">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <Gift className="w-8 h-8" />
-                    <div>
-                      <h3 className="font-semibold">Entertainment</h3>
-                      <p className="text-orange-100 text-sm">Subscriptions</p>
-                    </div>
-                  </div>
-                  <div className="text-2xl font-bold mb-2">$450.25</div>
-                  <div className="text-orange-100 text-sm">Card: 5555 **** **** 3456</div>
-                  <div className="flex gap-2 mt-4">
-                    <Badge className="bg-white/20 text-white text-xs">Mastercard</Badge>
-                    <Badge className="bg-white/20 text-white text-xs">Active</Badge>
-                  </div>
-                </CardContent>
-              </Card>
             </div>
 
             {/* Wallet Management */}
-            <div className="grid lg:grid-cols-3 gap-6">
+            <div className="grid lg:grid-cols-2 gap-6">
               {/* Quick Actions */}
               <Card className="bg-card/80 backdrop-blur-sm">
                 <CardHeader>
@@ -2562,92 +3204,125 @@ const Dashboard = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Button variant="outline" className="w-full justify-start">
+                  <Button variant="cta" className="w-full">
                     <Plus className="w-4 h-4 mr-2" />
                     Add Funds
                   </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    <ArrowRight className="w-4 h-4 mr-2" />
-                    Transfer Between Wallets
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start">
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={copyAddFundsLink}
+                  >
+                    {copiedAddFundsLink ? (
+                      <>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Add Funds Link Copied!
+                      </>
+                    ) : (
+                      <>
                     <Copy className="w-4 h-4 mr-2" />
-                    Copy Card Number
+                        Copy Add Funds Link
+                      </>
+                    )}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => setActiveTab('payouts')}
+                  >
+                    <Send className="w-4 h-4 mr-2" />
+                    Withdraw Funds (Payouts)
                   </Button>
                   <Button variant="outline" className="w-full justify-start">
                     <Settings className="w-4 h-4 mr-2" />
-                    Wallet Settings
+                    Account Settings
                   </Button>
                 </CardContent>
               </Card>
 
-              {/* Active Subscriptions */}
+              {/* Add Funds Link Info */}
               <Card className="bg-card/80 backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Calendar className="w-5 h-5" />
-                    Active Subscriptions
+                    <Link2 className="w-5 h-5" />
+                    Add Funds Link
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Share this link with anyone to allow them to add funds directly to your Nardopay account.
+                  </p>
+                  <div className="p-3 bg-secondary/30 rounded-lg mb-3">
+                    <div className="text-xs text-muted-foreground mb-1">Your Add Funds Link:</div>
+                    <div className="text-sm font-mono break-all">{addFundsLink}</div>
+                          </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full"
+                    onClick={copyAddFundsLink}
+                  >
+                    {copiedAddFundsLink ? (
+                      <>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4 mr-2" />
+                        Copy Link
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Active Subscriptions with Cancel Option */}
+              <Card className="bg-card/80 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5" />
+                  Active Subscriptions
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
                     {[
-                      { name: 'Netflix Premium', amount: 15.99, next: '2024-09-15', wallet: 'Entertainment' },
-                      { name: 'Spotify Premium', amount: 9.99, next: '2024-09-10', wallet: 'Entertainment' },
-                      { name: 'Adobe Creative Cloud', amount: 52.99, next: '2024-09-20', wallet: 'Business' },
-                      { name: 'Amazon Prime', amount: 12.99, next: '2024-09-05', wallet: 'Personal' }
-                    ].map((sub, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg">
-                        <div>
-                          <div className="font-medium text-sm">{sub.name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {sub.wallet} • Next: {new Date(sub.next).toLocaleDateString()}
-                          </div>
+                    { id: '1', name: 'Netflix Premium', amount: 15.99, next: '2024-09-15', status: 'active' },
+                    { id: '2', name: 'Spotify Premium', amount: 9.99, next: '2024-09-10', status: 'active' },
+                    { id: '3', name: 'Adobe Creative Cloud', amount: 52.99, next: '2024-09-20', status: 'active' },
+                    { id: '4', name: 'Amazon Prime', amount: 12.99, next: '2024-09-05', status: 'active' }
+                  ].map((sub) => (
+                    <div key={sub.id} className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg">
+                      <div>
+                        <div className="font-medium text-sm">{sub.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Next: {new Date(sub.next).toLocaleDateString()}
                         </div>
+                      </div>
+                      <div className="flex items-center gap-2">
                         <div className="text-right">
                           <div className="font-semibold text-sm">${sub.amount}</div>
                           <Badge className="bg-green-100 text-green-800 text-xs">Active</Badge>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Auto Transfers */}
-              <Card className="bg-card/80 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <RefreshCw className="w-5 h-5" />
-                    Auto Transfers
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {[
-                      { name: 'Monthly Savings', from: 'Personal', to: 'Savings', amount: 500, frequency: 'monthly', status: 'active' },
-                      { name: 'Weekly Entertainment', from: 'Personal', to: 'Entertainment', amount: 100, frequency: 'weekly', status: 'active' },
-                      { name: 'Business to Personal', from: 'Business', to: 'Personal', amount: 2000, frequency: 'monthly', status: 'paused' }
-                    ].map((transfer, index) => (
-                      <div key={index} className="p-3 bg-secondary/30 rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="font-medium text-sm">{transfer.name}</div>
-                          <Badge className={`text-xs ${
-                            transfer.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {transfer.status}
-                          </Badge>
-                        </div>
-                        <div className="text-xs text-muted-foreground space-y-1">
-                          <div>{transfer.from} → {transfer.to}</div>
-                          <div>${transfer.amount} {transfer.frequency}</div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-destructive hover:text-destructive/80"
+                          onClick={() => {
+                            // Handle subscription cancellation
+                            console.log(`Cancelling subscription: ${sub.name}`);
+                          }}
+                        >
+                          <XCircle className="w-4 h-4" />
+                        </Button>
                         </div>
                       </div>
                     ))}
                   </div>
                 </CardContent>
               </Card>
-            </div>
 
             {/* Recent Transactions */}
             <Card className="bg-card/80 backdrop-blur-sm">
@@ -2697,188 +3372,168 @@ const Dashboard = () => {
 
 
 
-      case 'payments':
+      case 'history':
         return (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h1 className="text-3xl font-bold text-foreground">Payments</h1>
+              <h1 className="text-3xl font-bold text-foreground">Transaction History</h1>
               <Button variant="cta">
                 <Download className="w-4 h-4 mr-2" />
                 Export
               </Button>
             </div>
 
+            {/* Filters */}
             <Card className="bg-card/80 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle>Recent Payments</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Search className="w-5 h-5" />
+                  Filters & Search
+                </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {paymentData.map((payment) => (
-                    <div 
-                      key={payment.id} 
-                      className="flex items-center justify-between p-4 bg-secondary/30 rounded-lg cursor-pointer hover:bg-secondary/50 transition-colors"
-                      onClick={() => {
-                        setSelectedPayment(payment);
-                        setShowPaymentDetails(true);
-                      }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-primary/20 rounded-lg flex items-center justify-center">
-                          <CreditCard className="w-5 h-5 text-blue-primary" />
+              <CardContent className="space-y-4">
+                {/* Search */}
+                <div>
+                  <Label htmlFor="search">Search Transactions</Label>
+                  <Input
+                    id="search"
+                    placeholder="Search by description or amount..."
+                    value={historySearch}
+                    onChange={(e) => setHistorySearch(e.target.value)}
+                    className="mt-1"
+                  />
                         </div>
+
+                {/* Filter Buttons */}
                         <div>
-                          <div className="font-medium text-foreground">{payment.amount}</div>
-                          <div className="text-sm text-muted-foreground">{payment.clientName}</div>
-                          <div className="text-xs text-muted-foreground">{payment.method}</div>
+                  <Label className="mb-2 block">Filter by Type</Label>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant={historyFilter === 'all' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setHistoryFilter('all')}
+                    >
+                      All
+                    </Button>
+                    <Button
+                      variant={historyFilter === 'payments' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setHistoryFilter('payments')}
+                    >
+                      <CreditCard className="w-4 h-4 mr-1" />
+                      Payments
+                    </Button>
+                    <Button
+                      variant={historyFilter === 'subscriptions' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setHistoryFilter('subscriptions')}
+                    >
+                      <Zap className="w-4 h-4 mr-1" />
+                      Subscriptions
+                    </Button>
+                    <Button
+                      variant={historyFilter === 'donations' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setHistoryFilter('donations')}
+                    >
+                      <Heart className="w-4 h-4 mr-1" />
+                      Donations
+                    </Button>
+                    <Button
+                      variant={historyFilter === 'funds-added' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setHistoryFilter('funds-added')}
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Funds Added
+                    </Button>
+                    <Button
+                      variant={historyFilter === 'withdrawals' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setHistoryFilter('withdrawals')}
+                    >
+                      <Send className="w-4 h-4 mr-1" />
+                      Withdrawals
+                    </Button>
+                    <Button
+                      variant={historyFilter === 'transfers' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setHistoryFilter('transfers')}
+                    >
+                      <ArrowRight className="w-4 h-4 mr-1" />
+                      Transfers
+                    </Button>
+                    <Button
+                      variant={historyFilter === 'direct-pay' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setHistoryFilter('direct-pay')}
+                    >
+                      <Zap className="w-4 h-4 mr-1" />
+                      Direct Pay
+                    </Button>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <Badge className={getStatusColor(payment.status)}>
-                          {payment.refunded ? 'REFUNDED' : payment.status}
-                        </Badge>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {new Date(payment.date).toLocaleDateString()}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Payment Details Modal */}
-            {showPaymentDetails && selectedPayment && (
-              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                <Card className="w-full max-w-2xl bg-card/95 backdrop-blur-sm">
+            {/* Transaction History */}
+            <Card className="bg-card/80 backdrop-blur-sm">
                   <CardHeader>
-                    <div className="flex items-center justify-between">
                       <CardTitle className="flex items-center gap-2">
-                        <CreditCard className="w-5 h-5" />
-                        Payment Details
+                  <Clock className="w-5 h-5" />
+                  All Transactions ({filteredTransactions.length})
                       </CardTitle>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setShowPaymentDetails(false);
-                          setSelectedPayment(null);
-                        }}
-                      >
-                        <XCircle className="w-4 h-4" />
-                      </Button>
-                    </div>
                   </CardHeader>
-                  <CardContent className="space-y-6">
-                    {/* Success/Error Messages */}
-                    {refundStatus === 'success' && (
-                      <div className="bg-green-success/10 border border-green-success/30 rounded-lg p-4">
-                        <div className="flex items-center gap-2 text-green-success">
-                          <CheckCircle className="w-5 h-5" />
-                          <span className="font-medium">Refund processed successfully!</span>
+              <CardContent>
+                <div className="space-y-4">
+                  {filteredTransactions.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Clock className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No transactions found matching your filters</p>
                         </div>
-                      </div>
-                    )}
-
-                    {refundStatus === 'error' && (
-                      <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4">
-                        <div className="flex items-center gap-2 text-destructive">
-                          <XCircle className="w-5 h-5" />
-                          <span className="font-medium">Refund failed. Please try again.</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Payment Information */}
-                    <div className="grid md:grid-cols-2 gap-6">
-                      <div className="space-y-4">
-                        <div>
-                          <label className="text-sm font-medium text-muted-foreground">Client Name</label>
-                          <p className="text-foreground font-medium">{selectedPayment.clientName}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-muted-foreground">Client Email</label>
-                          <p className="text-foreground">{selectedPayment.clientEmail}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-muted-foreground">Transaction ID</label>
-                          <p className="text-foreground font-mono text-sm">{selectedPayment.transactionId}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-muted-foreground">Payment Link</label>
-                          <p className="text-foreground">{selectedPayment.paymentLink}</p>
-                        </div>
-                      </div>
+                  ) : (
+                    filteredTransactions.map((transaction) => {
+                      const transactionInfo = getTransactionInfo(transaction.category);
+                      const Icon = transactionInfo.icon;
                       
-                      <div className="space-y-4">
-                        <div>
-                          <label className="text-sm font-medium text-muted-foreground">Amount</label>
-                          <p className="text-foreground font-bold text-xl">{selectedPayment.amount}</p>
+                      return (
+                        <div 
+                          key={transaction.id} 
+                          className="flex items-center justify-between p-4 bg-secondary/30 rounded-lg hover:bg-secondary/50 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${transactionInfo.color}`}>
+                              <Icon className="w-5 h-5" />
                         </div>
                         <div>
-                          <label className="text-sm font-medium text-muted-foreground">Payment Method</label>
-                          <p className="text-foreground">{selectedPayment.method}</p>
+                               <div className="font-medium text-foreground">{transaction.description}</div>
+                               <div className="text-sm text-muted-foreground">
+                                 {transactionInfo.label} • {new Date(transaction.date).toLocaleDateString()}
                         </div>
-                        <div>
-                          <label className="text-sm font-medium text-muted-foreground">Purchase Date</label>
-                          <p className="text-foreground">
-                            {new Date(selectedPayment.date).toLocaleDateString()} at{' '}
-                            {new Date(selectedPayment.date).toLocaleTimeString()}
-                          </p>
+                               {transaction.clientEmail && (
+                                 <div className="text-xs text-muted-foreground">
+                                   {transaction.direction === 'in' ? 'From: ' : 'To: '}{transaction.clientEmail}
                         </div>
-                        <div>
-                          <label className="text-sm font-medium text-muted-foreground">Status</label>
-                          <Badge className={getStatusColor(selectedPayment.status)}>
-                            {selectedPayment.refunded ? 'REFUNDED' : selectedPayment.status}
+                               )}
+                        </div>
+                        </div>
+                          <div className="text-right">
+                            <div className={`font-semibold text-lg ${
+                              transaction.direction === 'in' ? 'text-green-600' : 'text-red-600'
+                            }`}>
+                              {transaction.direction === 'in' ? '+' : '-'}${transaction.amount.toFixed(2)}
+                      </div>
+                            <Badge className={transaction.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
+                              {transaction.status}
                           </Badge>
                         </div>
                       </div>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">Description</label>
-                      <p className="text-foreground">{selectedPayment.description}</p>
-                    </div>
-
-                    {/* Refund Button */}
-                    {!selectedPayment.refunded && (
-                      <div className="border-t pt-4">
-                        <Button
-                          variant="destructive"
-                          onClick={() => handleRefund(selectedPayment.id)}
-                          disabled={refundStatus === 'processing'}
-                          className="w-full"
-                        >
-                          {refundStatus === 'processing' ? (
-                            <>
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                              Processing Refund...
-                            </>
-                          ) : (
-                            <>
-                              <ArrowDownLeft className="w-4 h-4 mr-2" />
-                              Refund Payment
-                            </>
-                          )}
-                        </Button>
-                        <p className="text-xs text-muted-foreground mt-2 text-center">
-                          Refund will be processed to the original payment method
-                        </p>
+                      );
+                    })
+                  )}
                       </div>
-                    )}
-
-                    {selectedPayment.refunded && (
-                      <div className="border-t pt-4">
-                        <div className="text-center">
-                          <CheckCircle className="w-8 h-8 text-green-success mx-auto mb-2" />
-                          <p className="text-sm text-muted-foreground">This payment has been refunded</p>
-                        </div>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
-              </div>
-            )}
           </div>
         );
 
@@ -3005,73 +3660,44 @@ const Dashboard = () => {
 
       default:
         return (
-          <div className="space-y-6">
+          <div className="space-y-8">
+            {/* 1. Balance Section */}
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
                 <p className="text-muted-foreground">Welcome back, {user?.name}!</p>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm">
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Last 30 Days
+                <Button variant="outline" size="sm" onClick={() => setActiveTab('deposit')}>
+                  Deposit
                 </Button>
-                <Button variant="outline" size="sm">
-                  <Download className="w-4 h-4 mr-2" />
-                  Export Report
+                <Button variant="outline" size="sm" onClick={() => setActiveTab('withdraw')}>
+                  Withdraw
                 </Button>
               </div>
             </div>
+            <Card className="bg-card/80 backdrop-blur-sm p-6 flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-foreground">$12,450.00</div>
+                <div className="text-sm text-muted-foreground">Available Balance</div>
+              </div>
+            </Card>
 
-            {/* Key Metrics */}
-            <div className="grid md:grid-cols-4 gap-6">
-              <Card className="bg-gradient-primary p-6 text-primary-foreground">
+            {/* 2. Active Links Section */}
+            <div>
+              <h2 className="text-xl font-semibold mb-2">Active Links</h2>
+              <Card className="bg-card/80 backdrop-blur-sm p-6 cursor-pointer hover:shadow-lg" onClick={() => setShowLinksModal(true)}>
                 <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-2xl font-bold">$45,230</div>
-                    <div className="text-sm opacity-90">Total Revenue</div>
-                    <div className="text-xs opacity-80">+12.5% from last month</div>
-                  </div>
-                  <TrendingUp className="w-8 h-8 opacity-80" />
+                  <div className="text-lg font-bold text-foreground">{createdLinks.length + createdDonationLinks.length + createdSubscriptionLinks.length + createdCatalogues.length}</div>
+                  <div className="text-sm text-muted-foreground">Total Active Links</div>
                 </div>
               </Card>
-
-              <Card className="bg-card/80 backdrop-blur-sm p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-2xl font-bold text-foreground">1,234</div>
-                    <div className="text-sm text-muted-foreground">Total Payments</div>
-                    <div className="text-xs text-green-success">+8.2% from last month</div>
-                  </div>
-                  <CreditCard className="w-8 h-8 text-blue-primary" />
-                </div>
-              </Card>
-
-              <Card className="bg-card/80 backdrop-blur-sm p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-2xl font-bold text-foreground">98.5%</div>
-                    <div className="text-sm text-muted-foreground">Success Rate</div>
-                    <div className="text-xs text-green-success">+2.1% from last month</div>
-                  </div>
-                  <CheckCircle className="w-8 h-8 text-green-success" />
-                </div>
-              </Card>
-
-              <Card className="bg-card/80 backdrop-blur-sm p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-2xl font-bold text-foreground">56</div>
-                    <div className="text-sm text-muted-foreground">Active Links</div>
-                    <div className="text-xs text-green-success">+15.3% from last month</div>
-                  </div>
-                  <Link2 className="w-8 h-8 text-blue-primary" />
-                </div>
-              </Card>
+              {/* Modal or expandable section for links list and customer drilldown would go here */}
             </div>
 
-            {/* Charts Section */}
+            {/* 3. Charts Section */}
             <div className="grid lg:grid-cols-2 gap-6">
+              {/* Revenue Overview Chart */}
               <Card className="bg-card/80 backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -3080,29 +3706,10 @@ const Dashboard = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-64 flex items-end justify-between gap-2">
-                    {[
-                      { day: 'Mon', value: 1200, color: 'bg-blue-primary' },
-                      { day: 'Tue', value: 1800, color: 'bg-blue-primary' },
-                      { day: 'Wed', value: 1400, color: 'bg-blue-primary' },
-                      { day: 'Thu', value: 2200, color: 'bg-blue-primary' },
-                      { day: 'Fri', value: 1900, color: 'bg-blue-primary' },
-                      { day: 'Sat', value: 2800, color: 'bg-blue-primary' },
-                      { day: 'Sun', value: 2400, color: 'bg-blue-primary' }
-                    ].map((item, index) => (
-                      <div key={index} className="flex flex-col items-center flex-1">
-                        <div 
-                          className={`${item.color} rounded-t w-full transition-all hover:opacity-80`}
-                          style={{ height: `${(item.value / 2800) * 200}px` }}
-                        />
-                        <span className="text-xs text-muted-foreground mt-2">{item.day}</span>
-                        <span className="text-xs font-medium text-foreground">${item.value}</span>
-                      </div>
-                    ))}
-                  </div>
+                  {/* ...existing bar chart code... */}
                 </CardContent>
               </Card>
-
+              {/* Payment Methods Chart */}
               <Card className="bg-card/80 backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -3111,183 +3718,101 @@ const Dashboard = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-64 flex items-center justify-center">
-                    <div className="relative w-32 h-32">
-                      {/* Pie Chart Visualization */}
-                      <div className="absolute inset-0 rounded-full border-8 border-blue-primary" 
-                           style={{ clipPath: 'polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 50% 100%)' }} />
-                      <div className="absolute inset-0 rounded-full border-8 border-green-success" 
-                           style={{ clipPath: 'polygon(50% 50%, 50% 0%, 75% 0%, 75% 50%)' }} />
-                      <div className="absolute inset-0 rounded-full border-8 border-purple-500" 
-                           style={{ clipPath: 'polygon(50% 50%, 75% 50%, 75% 100%, 50% 100%)' }} />
-                      <div className="absolute inset-0 rounded-full border-8 border-orange-500" 
-                           style={{ clipPath: 'polygon(50% 50%, 0% 50%, 0% 100%, 50% 100%)' }} />
-                      
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-foreground">1,234</div>
-                          <div className="text-xs text-muted-foreground">Total</div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="ml-8 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-blue-primary rounded-full"></div>
-                        <span className="text-sm text-foreground">Cards (45%)</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-green-success rounded-full"></div>
-                        <span className="text-sm text-foreground">Mobile Money (30%)</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-                        <span className="text-sm text-foreground">Bank Transfer (15%)</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                        <span className="text-sm text-foreground">Others (10%)</span>
-                      </div>
-                    </div>
-                  </div>
+                  {/* ...existing pie chart code... */}
                 </CardContent>
               </Card>
             </div>
 
-            {/* Recent Activity & Quick Actions */}
-            <div className="grid lg:grid-cols-2 gap-6">
-              <Card className="bg-card/80 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="w-5 h-5" />
-                    Recent Activity
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {[
-                      { type: 'payment', amount: '$100.00', from: 'john@example.com', time: '2 min ago', icon: CreditCard },
-                      { type: 'donation', amount: '$50.00', from: 'sarah@example.com', time: '5 min ago', icon: Heart },
-                      { type: 'subscription', amount: '$25.00', from: 'mike@example.com', time: '10 min ago', icon: Zap },
-                      { type: 'payment', amount: '$200.00', from: 'emily@example.com', time: '15 min ago', icon: CreditCard },
-                      { type: 'donation', amount: '$75.00', from: 'david@example.com', time: '20 min ago', icon: Heart }
-                    ].map((activity, i) => (
-                      <div key={i} className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-blue-primary/20 rounded-full flex items-center justify-center">
-                          <activity.icon className="w-4 h-4 text-blue-primary" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="text-sm font-medium text-foreground">
-                            {activity.type === 'payment' ? 'Payment received' : 
-                             activity.type === 'donation' ? 'Donation received' : 'Subscription payment'}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {activity.amount} from {activity.from}
-                          </div>
-                        </div>
-                        <div className="text-xs text-muted-foreground">{activity.time}</div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-card/80 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Zap className="w-5 h-5" />
-                    Quick Actions
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Button 
-                      variant="outline" 
-                      className="h-20 flex-col hover:bg-blue-primary/10 hover:border-blue-primary"
-                      onClick={() => setActiveTab('links')}
-                    >
-                      <Link2 className="w-6 h-6 mb-2 text-blue-primary" />
-                      <span className="text-sm">Create Payment Link</span>
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="h-20 flex-col hover:bg-red-500/10 hover:border-red-500"
-                      onClick={() => setActiveTab('donations')}
-                    >
-                      <Heart className="w-6 h-6 mb-2 text-red-500" />
-                      <span className="text-sm">Create Donation Link</span>
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="h-20 flex-col hover:bg-purple-500/10 hover:border-purple-500"
-                      onClick={() => setActiveTab('subscriptions')}
-                    >
-                      <Zap className="w-6 h-6 mb-2 text-purple-500" />
-                      <span className="text-sm">Create Subscription</span>
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="h-20 flex-col hover:bg-green-success/10 hover:border-green-success"
-                      onClick={() => setActiveTab('catalogue')}
-                    >
-                      <FileText className="w-6 h-6 mb-2 text-green-success" />
-                      <span className="text-sm">Create Catalogue</span>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Top Performing Links */}
-            <Card className="bg-card/80 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5" />
-                  Top Performing Links
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {[
-                    { name: 'Premium T-Shirt', revenue: '$8,450', payments: 84, conversion: '4.2%' },
-                    { name: 'Consultation Service', revenue: '$6,200', payments: 31, conversion: '3.8%' },
-                    { name: 'Digital Course', revenue: '$4,800', payments: 64, conversion: '3.1%' },
-                    { name: 'Donation Campaign', revenue: '$2,000', payments: 200, conversion: '2.5%' }
-                  ].map((link, i) => (
-                    <div key={i} className="flex items-center justify-between p-4 bg-secondary/30 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-primary/20 rounded-lg flex items-center justify-center">
-                          <span className="text-sm font-bold text-blue-primary">{i + 1}</span>
-                        </div>
-                        <div>
-                          <div className="font-medium text-foreground">{link.name}</div>
-                          <div className="text-sm text-muted-foreground">{link.payments} payments</div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-bold text-foreground">{link.revenue}</div>
-                        <div className="text-sm text-green-success">{link.conversion} conversion</div>
-                      </div>
-                    </div>
-                  ))}
+            {/* 4. Virtual Card & Subscriptions Section */}
+            <div>
+              <h2 className="text-xl font-semibold mb-2">Virtual Card & Subscriptions</h2>
+              <Card className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg p-6 text-white mb-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm">Virtual Card</span>
+                  <span className="text-sm">Nardopay</span>
                 </div>
-              </CardContent>
-            </Card>
+                <div className="text-lg font-mono mb-2">**** **** **** 1234</div>
+                <div className="flex justify-between items-center text-sm">
+                  <span>John Doe</span>
+                  <span>12/25</span>
+                </div>
+              </Card>
+              <div className="space-y-2">
+                <h3 className="text-lg font-semibold text-foreground">Active Subscriptions</h3>
+                {createdSubscriptionLinks.map(sub => (
+                  <Card key={sub.id} className="bg-card/80 backdrop-blur-sm p-4 flex items-center justify-between">
+                    <div>
+                      <div className="font-medium text-foreground">{sub.title}</div>
+                      <div className="text-sm text-muted-foreground">{sub.amount} / {sub.billingCycle}</div>
+                    </div>
+                    <Button variant="destructive" size="sm">Cancel</Button>
+                  </Card>
+                ))}
+              </div>
+            </div>
+
+            {/* 5. History Section */}
+            <div>
+              <h2 className="text-xl font-semibold mb-2">History</h2>
+              <Card className="bg-card/80 backdrop-blur-sm p-6">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr>
+                        <th className="text-left p-2">Type</th>
+                        <th className="text-left p-2">Amount</th>
+                        <th className="text-left p-2">Counterparty</th>
+                        <th className="text-left p-2">Date</th>
+                        <th className="text-left p-2">Status</th>
+                        <th className="text-left p-2">Method</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {transfers.map(txn => (
+                        <tr key={txn.id}>
+                          <td className="p-2">{txn.amount > 0 ? 'Received' : 'Sent'}</td>
+                          <td className="p-2">{txn.amount > 0 ? '+' : '-'}${Math.abs(txn.amount).toFixed(2)}</td>
+                          <td className="p-2">{txn.recipient}</td>
+                          <td className="p-2">{new Date(txn.date).toLocaleString()}</td>
+                          <td className="p-2">{txn.status}</td>
+                          <td className="p-2">{txn.currency}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            </div>
+
+            {/* 6. Quick Actions Section */}
+            <div>
+              <h2 className="text-xl font-semibold mb-2">Quick Actions</h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                <Button variant="outline" onClick={() => setActiveTab('create-link')}>Create Link</Button>
+                <Button variant="outline" onClick={() => setActiveTab('send-money')}>Send Money</Button>
+                <Button variant="outline" onClick={() => setActiveTab('make-payment')}>Make Payment</Button>
+                <Button variant="outline" onClick={() => setActiveTab('deposit')}>Deposit</Button>
+                <Button variant="outline" onClick={() => setActiveTab('withdraw')}>Withdraw</Button>
+              </div>
+            </div>
           </div>
         );
     }
   };
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background">
       {/* Sidebar */}
-      <div className="w-64 bg-gradient-secondary border-r border-border">
-        <div className="p-6">
+      <div className={`fixed top-0 left-0 h-full ${sidebarCollapsed ? 'w-16' : 'w-64'} bg-gradient-secondary border-r border-border transition-all duration-300 z-50`}>
+        <div className="flex flex-col h-full">
+          <div className="p-6 flex-shrink-0">
           <div className="flex items-center space-x-2 mb-8">
-            <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center flex-shrink-0">
               <span className="text-primary-foreground font-bold text-lg">N</span>
             </div>
+              {!sidebarCollapsed && (
             <span className="text-xl font-bold text-foreground">Nardopay</span>
+              )}
           </div>
 
           <nav className="space-y-2">
@@ -3297,42 +3822,65 @@ const Dashboard = () => {
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
+                    className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'space-x-3'} px-3 py-2 rounded-lg text-left transition-colors ${
                     activeTab === item.id
                       ? 'bg-blue-primary text-primary-foreground'
                       : item.special
                       ? 'text-green-success hover:bg-secondary/50'
                       : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
                   }`}
+                    title={sidebarCollapsed ? item.label : undefined}
                 >
                   <Icon className="w-5 h-5" />
+                    {!sidebarCollapsed && (
                   <span className="text-sm font-medium">{item.label}</span>
+                    )}
                 </button>
               );
             })}
           </nav>
         </div>
 
-        <div className="absolute bottom-0 w-64 p-6 border-t border-border">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-primary rounded-full flex items-center justify-center">
+          <div className="mt-auto p-6 border-t border-border flex-shrink-0">
+            <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
+              <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'space-x-3'}`}>
+                <div className="w-8 h-8 bg-gradient-primary rounded-full flex items-center justify-center flex-shrink-0">
                 <User className="w-4 h-4 text-primary-foreground" />
               </div>
+                {!sidebarCollapsed && (
               <div>
                 <div className="text-sm font-medium text-foreground">{user?.name}</div>
                 <div className="text-xs text-muted-foreground">{user?.email}</div>
               </div>
+                )}
             </div>
+              {!sidebarCollapsed && (
             <Button variant="ghost" size="sm" onClick={logout}>
               <LogOut className="w-4 h-4" />
             </Button>
+              )}
           </div>
+          </div>
+
+          {/* Toggle Button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="absolute -right-3 top-6 w-6 h-6 p-0 bg-background border border-border rounded-full hover:bg-secondary"
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {sidebarCollapsed ? (
+              <ChevronRight className="w-3 h-3" />
+            ) : (
+              <ChevronLeft className="w-3 h-3" />
+            )}
+          </Button>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto">
+      <div className={`${sidebarCollapsed ? 'ml-16' : 'ml-64'} transition-all duration-300`}>
         <div className="p-8">
           {renderContent()}
         </div>
