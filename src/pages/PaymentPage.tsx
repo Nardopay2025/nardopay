@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useInvoiceSettings } from '@/contexts/InvoiceSettingsContext';
 import { usePaymentLinks } from '@/contexts/PaymentLinksContext';
@@ -16,7 +16,8 @@ import {
   DollarSign,
   User,
   Mail,
-  Phone
+  Phone,
+  ArrowRight
 } from 'lucide-react';
 
 const PaymentPage = () => {
@@ -35,7 +36,8 @@ const PaymentPage = () => {
     cardCvv: '',
     cardHolderName: ''
   });
-  const [paymentMethod, setPaymentMethod] = useState('card');
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [currentStep, setCurrentStep] = useState(1);
   const [quantity, setQuantity] = useState(1);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'processing' | 'success' | 'failed'>('pending');
 
@@ -75,6 +77,22 @@ const PaymentPage = () => {
 
   // Generate mock data for any link ID (for testing purposes)
   const generateMockData = (id: string) => {
+    // Try to get the actual payment link data first
+    const actualLink = getPaymentLink(id);
+    if (actualLink) {
+      return {
+        id: actualLink.id,
+        amount: actualLink.amount,
+        currency: actualLink.currency,
+        productName: actualLink.productName,
+        description: actualLink.description,
+        thankYouMessage: actualLink.thankYouMessage,
+        redirectUrl: actualLink.redirectUrl,
+        status: actualLink.status || 'ACTIVE'
+      };
+    }
+    
+    // Fallback to default mock data
     return {
       id: id,
       amount: '$50.00',
@@ -82,7 +100,7 @@ const PaymentPage = () => {
       productName: 'Product/Service',
       description: 'Payment for goods or services',
       thankYouMessage: 'Thank you for your payment!',
-      redirectUrl: '',
+      redirectUrl: 'https://example.com/success',
       status: 'ACTIVE'
     };
   };
@@ -113,6 +131,16 @@ const PaymentPage = () => {
       ...prev,
       [field]: value
     }));
+  };
+
+  const handlePaymentMethodSelect = (method: string) => {
+    setPaymentMethod(method);
+    setCurrentStep(2);
+  };
+
+  const handleBackToStep1 = () => {
+    setCurrentStep(1);
+    setPaymentMethod('');
   };
 
   const getCurrencySymbol = (currencyCode: string) => {
@@ -310,308 +338,189 @@ const PaymentPage = () => {
     );
   }
 
-  return (
-    <div 
-      className="min-h-screen"
-      style={{
-        background: `linear-gradient(135deg, ${invoiceSettings.primaryColor}15, ${invoiceSettings.secondaryColor}15, ${invoiceSettings.primaryColor}25)`
-      }}
-    >
-      <div className="max-w-4xl mx-auto px-6 py-12">
+    return (
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+      <div className="w-full max-w-md mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-4">
+        <div className="text-center mb-6">
+          <div className="flex items-center justify-center gap-2 mb-2">
             {invoiceSettings.customLogo && invoiceSettings.logoUrl ? (
               <img 
                 src={invoiceSettings.logoUrl} 
                 alt={invoiceSettings.businessName} 
-                className="w-12 h-12 object-contain"
+                className="w-6 h-6 object-contain"
               />
             ) : (
               <div 
-                className="w-12 h-12 rounded-lg flex items-center justify-center"
+                className="w-6 h-6 rounded flex items-center justify-center"
                 style={{ backgroundColor: invoiceSettings.primaryColor }}
               >
-                <span className="text-white font-bold text-lg">
+                <span className="text-white font-bold text-xs">
                   {invoiceSettings.businessName.charAt(0).toUpperCase()}
                 </span>
               </div>
             )}
             <span 
-              className="text-2xl font-bold"
+              className="font-semibold text-white text-sm"
               style={{ color: invoiceSettings.primaryColor }}
             >
               {invoiceSettings.businessName}
             </span>
           </div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Complete Your Payment</h1>
-          <p className="text-muted-foreground">Secure payment powered by Nardopay</p>
+          <h1 className="text-lg font-bold text-white mb-1">Complete Your Payment</h1>
+          <p className="text-gray-400 text-xs">Secure payment powered by {invoiceSettings.businessName}</p>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* Payment Form */}
-          <Card className="bg-card/80 backdrop-blur-sm border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <DollarSign className="w-5 h-5" style={{ color: invoiceSettings.primaryColor }} />
-                Payment Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Customer Information */}
-              <div className="space-y-4">
-                <h3 className="font-semibold text-foreground">Your Information</h3>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Full Name *</Label>
-                    <Input
-                      id="name"
-                      placeholder="Enter your full name"
-                      value={customerData.name}
-                      onChange={(e) => handleInputChange('name', e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email *</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="your@email.com"
-                      value={customerData.email}
-                      onChange={(e) => handleInputChange('email', e.target.value)}
-                    />
-                  </div>
+        {/* Back Button */}
+        {currentStep === 2 && (
+          <Button
+            variant="outline"
+            onClick={handleBackToStep1}
+            className="flex items-center gap-2 mb-4 w-full"
+            size="sm"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Step 1
+          </Button>
+        )}
+
+        {/* Order Summary */}
+        <Card className="bg-gray-800 border-gray-700 mb-4">
+          <CardContent className="p-4">
+            <div className="text-xs font-bold text-white mb-2">Order Summary</div>
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <div className="text-white text-sm font-medium">{paymentData.productName}</div>
+                <div className="text-gray-400 text-xs mt-1">{paymentData.description}</div>
+              </div>
+              <div className="text-right ml-4">
+                <div className="text-white font-bold text-sm">{formatAmount(calculateTotal())}</div>
+                <div className="text-gray-400 text-xs">{paymentData.currency}</div>
+              </div>
+            </div>
+            <div className="border-t border-gray-700 mt-3 pt-3">
+              <div className="flex justify-between">
+                <span className="text-gray-400 text-xs">Total</span>
+                <span className="text-white font-bold text-sm">{formatAmount(calculateTotal())}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Step 1: Payment Method Selection */}
+        {currentStep === 1 && (
+          <>
+            {/* Payment Methods */}
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              <button
+                onClick={() => handlePaymentMethodSelect('card')}
+                className="p-3 border border-gray-600 rounded text-center hover:border-current/50 transition-colors"
+                style={{ color: invoiceSettings.primaryColor }}
+              >
+                <CreditCard className="w-4 h-4 mx-auto mb-1" style={{ color: invoiceSettings.primaryColor }} />
+                <div className="text-xs text-gray-300">Card</div>
+              </button>
+              <button
+                onClick={() => handlePaymentMethodSelect('mobile')}
+                className="p-3 border border-gray-600 rounded text-center hover:border-current/50 transition-colors"
+                style={{ color: invoiceSettings.primaryColor }}
+              >
+                <Smartphone className="w-4 h-4 mx-auto mb-1" style={{ color: invoiceSettings.primaryColor }} />
+                <div className="text-xs text-gray-300">Mobile</div>
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Step 2: Payment Details Form */}
+        {currentStep === 2 && (
+          <>
+            <Card className="bg-gray-800 border-gray-700 mb-4">
+              <CardContent className="p-4">
+                <div className="text-sm font-bold text-white mb-3">
+                  {paymentMethod === 'card' ? 'Card Details' : 'Mobile Money Details'}
                 </div>
                 
-                {/* Dynamic fields based on payment method */}
                 {paymentMethod === 'card' && (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     <div className="space-y-2">
-                      <Label htmlFor="cardNumber">Card Number *</Label>
+                      <Label htmlFor="cardNumber" className="text-xs text-gray-300">Card Number *</Label>
                       <Input
                         id="cardNumber"
                         placeholder="1234 5678 9012 3456"
                         value={customerData.cardNumber}
                         onChange={(e) => handleInputChange('cardNumber', e.target.value)}
                         maxLength={19}
+                        className="bg-gray-700 border-gray-600 text-white"
                       />
                     </div>
-                    <div className="grid md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="cardExpiry">Expiry Date *</Label>
+                        <Label htmlFor="cardExpiry" className="text-xs text-gray-300">Expiry Date *</Label>
                         <Input
                           id="cardExpiry"
                           placeholder="MM/YY"
                           value={customerData.cardExpiry}
                           onChange={(e) => handleInputChange('cardExpiry', e.target.value)}
                           maxLength={5}
+                          className="bg-gray-700 border-gray-600 text-white"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="cardCvv">CVV *</Label>
+                        <Label htmlFor="cardCvv" className="text-xs text-gray-300">CVV *</Label>
                         <Input
                           id="cardCvv"
                           placeholder="123"
                           value={customerData.cardCvv}
                           onChange={(e) => handleInputChange('cardCvv', e.target.value)}
                           maxLength={4}
+                          className="bg-gray-700 border-gray-600 text-white"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="cardHolderName">Cardholder Name *</Label>
-                        <Input
-                          id="cardHolderName"
-                          placeholder="Name on card"
-                          value={customerData.cardHolderName}
-                          onChange={(e) => handleInputChange('cardHolderName', e.target.value)}
-                        />
-                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cardHolderName" className="text-xs text-gray-300">Cardholder Name *</Label>
+                      <Input
+                        id="cardHolderName"
+                        placeholder="Name on card"
+                        value={customerData.cardHolderName}
+                        onChange={(e) => handleInputChange('cardHolderName', e.target.value)}
+                        className="bg-gray-700 border-gray-600 text-white"
+                      />
                     </div>
                   </div>
                 )}
                 
                 {paymentMethod === 'mobile' && (
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Mobile Money Phone Number *</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="+250 123 456 789"
-                      value={customerData.phone}
-                      onChange={(e) => handleInputChange('phone', e.target.value)}
-                    />
-                  </div>
-                )}
-                
-
-              </div>
-
-              {/* Payment Method */}
-              <div className="space-y-4">
-                <h3 className="font-semibold text-foreground">Payment Method</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <button
-                    onClick={() => setPaymentMethod('card')}
-                    className={`p-4 rounded-lg border-2 transition-colors ${
-                      paymentMethod === 'card'
-                        ? 'border-current bg-current/10'
-                        : 'border-border hover:border-current/50'
-                    }`}
-                    style={{ 
-                      '--tw-border-opacity': paymentMethod === 'card' ? 1 : 0.5,
-                      '--tw-bg-opacity': paymentMethod === 'card' ? 0.1 : 0,
-                      color: invoiceSettings.primaryColor
-                    } as React.CSSProperties}
-                  >
-                    <CreditCard className="w-6 h-6 mx-auto mb-2" style={{ color: invoiceSettings.primaryColor }} />
-                    <span className="text-sm font-medium">Card</span>
-                  </button>
-                  <button
-                    onClick={() => setPaymentMethod('mobile')}
-                    className={`p-4 rounded-lg border-2 transition-colors ${
-                      paymentMethod === 'mobile'
-                        ? 'border-current bg-current/10'
-                        : 'border-border hover:border-current/50'
-                    }`}
-                    style={{ 
-                      '--tw-border-opacity': paymentMethod === 'mobile' ? 1 : 0.5,
-                      '--tw-bg-opacity': paymentMethod === 'mobile' ? 0.1 : 0,
-                      color: invoiceSettings.primaryColor
-                    } as React.CSSProperties}
-                  >
-                    <Smartphone className="w-6 h-6 mx-auto mb-2" style={{ color: invoiceSettings.primaryColor }} />
-                    <span className="text-sm font-medium">Mobile Money</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Payment Button */}
-              <Button 
-                onClick={handlePayment}
-                className="w-full transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-                style={{ 
-                  background: `linear-gradient(135deg, ${invoiceSettings.primaryColor}, ${invoiceSettings.secondaryColor})`,
-                  color: 'white',
-                  boxShadow: `0 4px 14px 0 ${invoiceSettings.primaryColor}40`,
-                  border: 'none'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = `linear-gradient(135deg, ${invoiceSettings.secondaryColor}, ${invoiceSettings.primaryColor})`;
-                  e.currentTarget.style.boxShadow = `0 6px 20px 0 ${invoiceSettings.secondaryColor}50`;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = `linear-gradient(135deg, ${invoiceSettings.primaryColor}, ${invoiceSettings.secondaryColor})`;
-                  e.currentTarget.style.boxShadow = `0 4px 14px 0 ${invoiceSettings.primaryColor}40`;
-                }}
-                disabled={!customerData.name || !customerData.email || 
-                  (paymentMethod === 'card' && (!customerData.cardNumber || !customerData.cardExpiry || !customerData.cardCvv || !customerData.cardHolderName)) ||
-                  (paymentMethod === 'mobile' && !customerData.phone)
-                }
-              >
-                {paymentStatus === 'processing' && (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Processing...
-                  </>
-                )}
-                {paymentStatus !== 'processing' && (
-                  <>
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Pay {formatAmount(calculateTotal())}
-                  </>
-                )}
-              </Button>
-
-              <div className="text-center">
-                <p className="text-xs text-muted-foreground">
-                  By completing this payment, you agree to our Terms of Service
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Order Summary */}
-          <div className="space-y-6">
-            <Card className="bg-card/80 backdrop-blur-sm border-border/50">
-              <CardHeader>
-                <CardTitle>Order Summary</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-foreground">{paymentData.productName}</h3>
-                    <p className="text-sm text-muted-foreground">{paymentData.description}</p>
-                  </div>
-                  <div className="text-right ml-4">
-                    <div className="text-lg font-bold text-foreground">{formatAmount(paymentData.amount.replace(/[^\d.]/g, ''))}</div>
-                    <div className="text-sm text-muted-foreground">{paymentData.currency}</div>
-                  </div>
-                </div>
-                
-                {/* Quantity Selector */}
-                <div className="flex items-center justify-between py-3 border-t border-border">
-                  <div className="flex items-center gap-4">
-                    <Label htmlFor="quantity" className="text-sm font-medium">Quantity:</Label>
-                    <div className="flex items-center border border-border rounded-lg">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                        className="px-3 py-1 hover:bg-current/10"
-                        style={{ color: invoiceSettings.primaryColor }}
-                      >
-                        -
-                      </Button>
-                      <span className="px-4 py-1 text-sm font-medium">{quantity}</span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setQuantity(quantity + 1)}
-                        className="px-3 py-1 hover:bg-current/10"
-                        style={{ color: invoiceSettings.primaryColor }}
-                      >
-                        +
-                      </Button>
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="phone" className="text-xs text-gray-300">Mobile Money Phone Number *</Label>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        placeholder="+250 123 456 789"
+                        value={customerData.phone}
+                        onChange={(e) => handleInputChange('phone', e.target.value)}
+                        className="bg-gray-700 border-gray-600 text-white"
+                      />
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm text-muted-foreground">Subtotal</div>
-                    <div className="font-semibold text-foreground">{formatAmount(calculateTotal())}</div>
-                  </div>
-                </div>
-                
-                <div className="border-t border-border pt-4">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-foreground">Total</span>
-                    <span className="text-2xl font-bold text-foreground">{formatAmount(calculateTotal())}</span>
-                  </div>
-                </div>
+                )}
               </CardContent>
             </Card>
 
-            {/* Security Badges */}
-            <Card className="bg-card/80 backdrop-blur-sm border-border/50">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-center gap-4">
-                  <Badge variant="outline" className="text-xs">
-                    <CheckCircle className="w-3 h-3 mr-1" />
-                    Secure
-                  </Badge>
-                  <Badge variant="outline" className="text-xs">
-                    <Globe className="w-3 h-3 mr-1" />
-                    Global
-                  </Badge>
-                  <Badge variant="outline" className="text-xs">
-                    <Smartphone className="w-3 h-3 mr-1" />
-                    Mobile
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+            {/* Pay Button - Only show on step 2 */}
+            <div 
+              className="p-3 rounded text-center text-white font-medium cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+              style={{ 
+                background: `linear-gradient(135deg, ${invoiceSettings.primaryColor}, ${invoiceSettings.secondaryColor})`
+              }}
+              onClick={handlePayment}
+            >
+              Pay {formatAmount(calculateTotal())}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

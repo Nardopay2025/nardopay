@@ -189,7 +189,7 @@ const DirectPay = () => {
                 <div className="flex justify-between text-muted-foreground">
                   <span>Total cost</span>
                   <span>-</span>
-                </div>
+                  </div>
                 </div>
 
               {/* Get Rate Button */}

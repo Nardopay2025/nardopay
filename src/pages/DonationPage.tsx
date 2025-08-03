@@ -3,14 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useDonationLinks } from '@/contexts/DonationLinksContext';
 import { useInvoiceSettings } from '@/contexts/InvoiceSettingsContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Progress } from '@/components/ui/progress';
 import { 
   CreditCard, 
   Smartphone, 
-  Globe, 
   Heart,
   CheckCircle,
   ArrowLeft
@@ -25,13 +23,17 @@ const DonationPage = () => {
   const [donationData, setDonationData] = useState<any>(null);
   const [customAmount, setCustomAmount] = useState('');
   const [selectedAmount, setSelectedAmount] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('card');
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'mobile'>('card');
+  const [currentStep, setCurrentStep] = useState(1);
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'processing' | 'success'>('idle');
-  const [formData, setFormData] = useState({
+  const [customerData, setCustomerData] = useState({
+    name: '',
+    email: '',
     cardNumber: '',
-    expiryDate: '',
-    cvv: '',
-    phoneNumber: ''
+    cardExpiry: '',
+    cardCvv: '',
+    cardHolderName: '',
+    phone: ''
   });
 
   const presetAmounts = ['10', '25', '50', '100', '250', '500'];
@@ -84,26 +86,40 @@ const DonationPage = () => {
     return `${currencySymbol}${amount}`;
   };
 
+  // Generate mock data for any link ID (for testing purposes)
+  const generateMockData = (id: string) => {
+    // Try to get the actual donation link data first
+    const actualLink = getDonationLink(id);
+    if (actualLink) {
+      return {
+        id: actualLink.id,
+        title: actualLink.title,
+        description: actualLink.description,
+        goalAmount: actualLink.goalAmount,
+        currency: actualLink.currency,
+        thankYouMessage: actualLink.thankYouMessage,
+        redirectUrl: actualLink.redirectUrl,
+        status: actualLink.status || 'ACTIVE'
+      };
+    }
+
+    // Fallback to default mock data
+    return {
+      id: id,
+      title: 'Help Build a School',
+      description: 'We are raising funds to build a new school in rural Kenya. Your donation will help provide education to 200 children who currently walk 5km to the nearest school.',
+      goalAmount: '10000',
+      currency: 'USD',
+      thankYouMessage: 'Thank you for your generous donation! Your support will make a real difference in these children\'s lives.',
+      redirectUrl: 'https://example.com/success',
+      status: 'ACTIVE'
+    };
+  };
+
   useEffect(() => {
     if (linkId) {
-      const link = getDonationLink(linkId);
-      if (link) {
-        setDonationData(link);
-      } else {
-        // Generate mock data for demo purposes
-        setDonationData({
-          id: linkId,
-          title: 'Help Build a School',
-          description: 'We are raising funds to build a new school in rural Kenya. Your donation will help provide education to 200 children who currently walk 5km to the nearest school.',
-          goalAmount: '$10,000',
-          currency: 'USD',
-          thankYouMessage: 'Thank you for your generous donation! Your support will make a real difference in these children\'s lives.',
-          redirectUrl: 'https://example.com/thank-you',
-          donations: 47,
-          totalAmount: '$7,350',
-          goalProgress: 73.5
-        });
-      }
+      const data = generateMockData(linkId);
+      setDonationData(data);
     }
   }, [linkId, getDonationLink]);
 
@@ -118,12 +134,24 @@ const DonationPage = () => {
   };
 
   const getAmountToCharge = () => {
-    return customAmount || selectedAmount;
+    return customAmount || selectedAmount || '0';
+  };
+
+  const handlePaymentMethodSelect = (method: 'card' | 'mobile') => {
+    setPaymentMethod(method);
+    setCurrentStep(2);
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setCustomerData(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   const handlePayment = async () => {
-    const amount = getAmountToCharge();
-    if (!amount || parseFloat(amount) <= 0) return;
+    const amount = parseFloat(getAmountToCharge());
+    if (amount <= 0) return;
 
     setPaymentStatus('processing');
     
@@ -132,270 +160,260 @@ const DonationPage = () => {
       setPaymentStatus('success');
       
       // Update donation progress
-      if (donationData) {
-        updateDonationProgress(donationData.id, parseFloat(amount));
+      if (donationData?.id) {
+        updateDonationProgress(donationData.id, amount);
       }
       
-      // Redirect after 3 seconds
+      // Redirect after success
       setTimeout(() => {
         if (donationData?.redirectUrl) {
-          const redirectUrl = donationData.redirectUrl.startsWith('http') 
-            ? donationData.redirectUrl 
-            : `https://${donationData.redirectUrl}`;
-          window.location.href = redirectUrl;
+          window.location.href = donationData.redirectUrl;
         }
-      }, 3000);
+      }, 2000);
     }, 2000);
   };
 
   if (!donationData) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="w-full max-w-md bg-card/80 backdrop-blur-sm border-border/50">
-          <CardContent className="p-6 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-primary mx-auto mb-4"></div>
-            <p className="text-foreground">Loading donation page...</p>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-white">Loading...</div>
       </div>
     );
   }
 
   if (paymentStatus === 'success') {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md bg-card/80 backdrop-blur-sm border-border/50">
-          <CardContent className="p-8 text-center">
-            <CheckCircle className="w-16 h-16 text-green-success mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-foreground mb-2">Donation Successful!</h2>
-            <p className="text-muted-foreground mb-6">{donationData.thankYouMessage}</p>
-            <p className="text-sm text-muted-foreground">Redirecting you shortly...</p>
-            <Button 
-              onClick={() => window.location.href = donationData.redirectUrl || '/'}
-              className="mt-4"
-            >
-              Continue
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+        <div className="w-full max-w-md text-center">
+          <div className="mb-6">
+            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-white mb-2">Thank You!</h1>
+            <p className="text-gray-400">{donationData.thankYouMessage}</p>
+          </div>
+          <div className="text-sm text-gray-500">
+            Redirecting to {donationData.redirectUrl}...
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div 
-      className="min-h-screen p-4"
-      style={{
-        background: `linear-gradient(135deg, ${invoiceSettings.primaryColor}15, ${invoiceSettings.secondaryColor}15, ${invoiceSettings.primaryColor}25)`
-      }}
-    >
-      <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+      <div className="w-full max-w-md mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            {invoiceSettings.logo ? (
-              <img src={invoiceSettings.logo} alt="Logo" className="w-8 h-8 rounded" />
+        <div className="text-center mb-6">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            {invoiceSettings.customLogo && invoiceSettings.logoUrl ? (
+              <img
+                src={invoiceSettings.logoUrl}
+                alt={invoiceSettings.businessName}
+                className="w-6 h-6 object-contain"
+              />
             ) : (
-              <div 
-                className="w-8 h-8 rounded flex items-center justify-center text-white font-bold text-sm"
-                style={{ backgroundColor: invoiceSettings.primaryColor || '#3b82f6' }}
+              <div
+                className="w-6 h-6 rounded flex items-center justify-center"
+                style={{ backgroundColor: invoiceSettings.primaryColor }}
               >
-                {invoiceSettings.businessName?.charAt(0) || 'N'}
+                <span className="text-white font-bold text-xs">
+                  {(invoiceSettings.businessName || 'N').charAt(0).toUpperCase()}
+                </span>
               </div>
             )}
-            <span 
-              className="font-semibold text-lg"
-              style={{ color: invoiceSettings.primaryColor || '#3b82f6' }}
+            <span
+              className="font-semibold text-white text-sm"
+              style={{ color: invoiceSettings.primaryColor }}
             >
               {invoiceSettings.businessName || 'Nardopay'}
             </span>
           </div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">{donationData.title}</h1>
-          <p className="text-muted-foreground mb-6">{donationData.description}</p>
+          <h1 className="text-lg font-bold text-white mb-1">Support Our Cause</h1>
+          <p className="text-gray-400 text-xs">Secure donation powered by {invoiceSettings.businessName || 'Nardopay'}</p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* Donation Form */}
-          <Card className="bg-card/80 backdrop-blur-sm border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Heart className="w-5 h-5 text-red-500" />
-                Make a Donation
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Amount Selection */}
-              <div className="space-y-4">
-                <Label>Select Amount</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {presetAmounts.map((amount) => (
-                    <Button
-                      key={amount}
-                      variant={selectedAmount === amount ? "default" : "outline"}
-                      onClick={() => handleAmountSelect(amount)}
-                      className="h-12"
-                      style={{
-                        backgroundColor: selectedAmount === amount ? (invoiceSettings.primaryColor || '#3b82f6') : undefined,
-                        borderColor: selectedAmount === amount ? (invoiceSettings.primaryColor || '#3b82f6') : undefined
-                      }}
-                    >
-                      {formatAmount(amount)}
-                    </Button>
-                  ))}
+        {/* Campaign Info */}
+        <Card className="bg-gray-800 border-gray-700 mb-4">
+          <CardContent className="p-4">
+            <div className="text-xs font-bold text-white mb-2">Campaign</div>
+            <div className="space-y-3">
+              <div>
+                <div className="text-white text-sm font-medium">
+                  {donationData.title}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="customAmount">Or enter custom amount</Label>
-                  <Input
-                    id="customAmount"
-                    type="number"
-                    placeholder="Enter amount"
-                    value={customAmount}
-                    onChange={(e) => handleCustomAmountChange(e.target.value)}
+                <div className="text-gray-400 text-xs mt-1">
+                  {donationData.description}
+                </div>
+              </div>
+              
+              {/* Goal Progress */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-400">Goal</span>
+                  <span className="text-gray-400 font-medium">
+                    {formatAmount(donationData.goalAmount)}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-2">
+                  <div 
+                    className="h-2 rounded-full transition-all duration-300"
+                    style={{ 
+                      width: '0%',
+                      background: `linear-gradient(135deg, ${invoiceSettings.primaryColor}, ${invoiceSettings.secondaryColor})`
+                    }}
                   />
                 </div>
-              </div>
-
-              {/* Payment Method */}
-              <div className="space-y-4">
-                <Label>Payment Method</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    variant={paymentMethod === 'card' ? "default" : "outline"}
-                    onClick={() => setPaymentMethod('card')}
-                    className="h-12"
-                    style={{
-                      backgroundColor: paymentMethod === 'card' ? (invoiceSettings.primaryColor || '#3b82f6') : undefined,
-                      borderColor: paymentMethod === 'card' ? (invoiceSettings.primaryColor || '#3b82f6') : undefined
-                    }}
-                  >
-                    <CreditCard className="w-4 h-4 mr-2" />
-                    Card
-                  </Button>
-                  <Button
-                    variant={paymentMethod === 'mobile' ? "default" : "outline"}
-                    onClick={() => setPaymentMethod('mobile')}
-                    className="h-12"
-                    style={{
-                      backgroundColor: paymentMethod === 'mobile' ? (invoiceSettings.primaryColor || '#3b82f6') : undefined,
-                      borderColor: paymentMethod === 'mobile' ? (invoiceSettings.primaryColor || '#3b82f6') : undefined
-                    }}
-                  >
-                    <Smartphone className="w-4 h-4 mr-2" />
-                    Mobile
-                  </Button>
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-400">$0 raised</span>
+                  <span className="text-gray-400">0%</span>
                 </div>
               </div>
+            </div>
+          </CardContent>
+        </Card>
 
-              {/* Payment Details */}
-              {paymentMethod === 'card' && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="cardNumber">Card Number</Label>
+        {/* Step 1: Amount Selection */}
+        {currentStep === 1 && (
+          <>
+            {/* Donation Amount Options */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+              {presetAmounts.map((amount) => (
+                <button
+                  key={amount}
+                  onClick={() => handleAmountSelect(amount)}
+                  className={`p-3 border rounded text-center transition-colors ${
+                    selectedAmount === amount 
+                      ? 'border-blue-500 bg-blue-500/20' 
+                      : 'border-gray-600 hover:border-blue-500'
+                  }`}
+                >
+                  <div className="text-white font-medium text-sm">
+                    {formatAmount(amount)}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* Custom Amount */}
+            <div className="mb-4">
+              <Input
+                placeholder="Enter custom amount"
+                value={customAmount}
+                onChange={(e) => handleCustomAmountChange(e.target.value)}
+                className="bg-gray-700 border-gray-600 text-white text-center"
+              />
+            </div>
+
+            {/* Payment Methods */}
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              <button
+                onClick={() => handlePaymentMethodSelect('card')}
+                className="p-3 border border-gray-600 rounded text-center hover:border-blue-500 transition-colors"
+                disabled={!getAmountToCharge() || getAmountToCharge() === '0'}
+              >
+                <CreditCard className="w-4 h-4 mx-auto mb-1 text-blue-500" />
+                <div className="text-xs text-gray-300">Card</div>
+              </button>
+              <button
+                onClick={() => handlePaymentMethodSelect('mobile')}
+                className="p-3 border border-gray-600 rounded text-center hover:border-blue-500 transition-colors"
+                disabled={!getAmountToCharge() || getAmountToCharge() === '0'}
+              >
+                <Smartphone className="w-4 h-4 mx-auto mb-1 text-blue-500" />
+                <div className="text-xs text-gray-300">Mobile</div>
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Step 2: Payment Details Form */}
+        {currentStep === 2 && (
+          <>
+            <Card className="bg-gray-800 border-gray-700 mb-4">
+              <CardContent className="p-4">
+                <div className="text-sm font-bold text-white mb-3">
+                  {paymentMethod === 'card' ? 'Card Details' : 'Mobile Money Details'}
+                </div>
+
+                {paymentMethod === 'card' && (
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="cardNumber" className="text-xs text-gray-300">Card Number *</Label>
                       <Input
                         id="cardNumber"
                         placeholder="1234 5678 9012 3456"
-                        value={formData.cardNumber}
-                        onChange={(e) => setFormData({...formData, cardNumber: e.target.value})}
+                        value={customerData.cardNumber}
+                        onChange={(e) => handleInputChange('cardNumber', e.target.value)}
+                        maxLength={19}
+                        className="bg-gray-700 border-gray-600 text-white"
                       />
                     </div>
-                    <div>
-                      <Label htmlFor="expiryDate">Expiry Date</Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="cardExpiry" className="text-xs text-gray-300">Expiry Date *</Label>
+                        <Input
+                          id="cardExpiry"
+                          placeholder="MM/YY"
+                          value={customerData.cardExpiry}
+                          onChange={(e) => handleInputChange('cardExpiry', e.target.value)}
+                          maxLength={5}
+                          className="bg-gray-700 border-gray-600 text-white"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="cardCvv" className="text-xs text-gray-300">CVV *</Label>
+                        <Input
+                          id="cardCvv"
+                          placeholder="123"
+                          value={customerData.cardCvv}
+                          onChange={(e) => handleInputChange('cardCvv', e.target.value)}
+                          maxLength={4}
+                          className="bg-gray-700 border-gray-600 text-white"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cardHolderName" className="text-xs text-gray-300">Cardholder Name *</Label>
                       <Input
-                        id="expiryDate"
-                        placeholder="MM/YY"
-                        value={formData.expiryDate}
-                        onChange={(e) => setFormData({...formData, expiryDate: e.target.value})}
+                        id="cardHolderName"
+                        placeholder="Name on card"
+                        value={customerData.cardHolderName}
+                        onChange={(e) => handleInputChange('cardHolderName', e.target.value)}
+                        className="bg-gray-700 border-gray-600 text-white"
                       />
                     </div>
                   </div>
-                  <div>
-                    <Label htmlFor="cvv">CVV</Label>
-                    <Input
-                      id="cvv"
-                      placeholder="123"
-                      value={formData.cvv}
-                      onChange={(e) => setFormData({...formData, cvv: e.target.value})}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {paymentMethod === 'mobile' && (
-                <div>
-                  <Label htmlFor="phoneNumber">Phone Number</Label>
-                  <Input
-                    id="phoneNumber"
-                    placeholder="+1234567890"
-                    value={formData.phoneNumber}
-                    onChange={(e) => setFormData({...formData, phoneNumber: e.target.value})}
-                  />
-                </div>
-              )}
-
-
-
-              <Button
-                onClick={handlePayment}
-                disabled={!getAmountToCharge() || paymentStatus === 'processing'}
-                className="w-full h-12 text-lg"
-                style={{
-                  backgroundColor: invoiceSettings.primaryColor || '#3b82f6',
-                  borderColor: invoiceSettings.primaryColor || '#3b82f6'
-                }}
-              >
-                {paymentStatus === 'processing' ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Processing...
-                  </>
-                ) : (
-                  `Donate ${formatAmount(getAmountToCharge() || '0')}`
                 )}
-              </Button>
-            </CardContent>
-          </Card>
 
-          {/* Progress Card */}
-          <Card className="bg-card/80 backdrop-blur-sm border-border/50">
-            <CardHeader>
-              <CardTitle>Campaign Progress</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Raised</span>
-                  <span className="font-semibold">{donationData.totalAmount}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Goal</span>
-                  <span className="font-semibold">{donationData.goalAmount}</span>
-                </div>
-                <Progress value={donationData.goalProgress} className="h-3" />
-                <p className="text-sm text-muted-foreground">
-                  {donationData.goalProgress.toFixed(1)}% of goal reached
-                </p>
-              </div>
+                {paymentMethod === 'mobile' && (
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="phone" className="text-xs text-gray-300">Mobile Money Phone Number *</Label>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        placeholder="+250 123 456 789"
+                        value={customerData.phone}
+                        onChange={(e) => handleInputChange('phone', e.target.value)}
+                        className="bg-gray-700 border-gray-600 text-white"
+                      />
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Total Donations</span>
-                  <span className="font-semibold">{donationData.donations}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Campaign Started</span>
-                  <span className="font-semibold">{donationData.createdAt}</span>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-border">
-                <p className="text-sm text-muted-foreground">
-                  <strong>Secure payment powered by Nardopay</strong>
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            {/* Donate Button - Only show on step 2 */}
+            <div
+              className="p-3 rounded text-center text-white font-medium cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+              style={{
+                background: `linear-gradient(135deg, ${invoiceSettings.primaryColor}, ${invoiceSettings.secondaryColor})`
+              }}
+              onClick={handlePayment}
+            >
+              {paymentStatus === 'processing' ? 'Processing...' : `Donate ${formatAmount(getAmountToCharge())}`}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
