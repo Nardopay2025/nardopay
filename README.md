@@ -1,13 +1,13 @@
 # Nardopay (MVP)
 
-Unified payment aggregator for African merchants. Frontend is React + Vite + TypeScript with shadcn-ui. Backend will be serverless endpoints on Vercel and Supabase for auth/DB.
+Unified payment aggregator for African merchants. Frontend is React + Vite + TypeScript with shadcn-ui. Backend endpoints run as Netlify Functions with Supabase for auth/DB.
 
 ## Stack
 
 - React 18, TypeScript, Vite
 - Tailwind CSS + shadcn-ui (Radix)
 - React Router, TanStack Query
-- Vercel Functions (Node runtime) for API/Webhooks
+- Netlify Functions for API/Webhooks
 - Supabase (Postgres + Auth)
 
 ## Quick start
@@ -27,7 +27,7 @@ Dev server: http://localhost:5173
   - VITE_SUPABASE_URL=...
   - VITE_SUPABASE_ANON_KEY=...
 
-- Server (Vercel Project Settings → Environment Variables):
+- Server (Netlify site settings → Environment Variables):
   - SUPABASE_SERVICE_ROLE_KEY=...
   - PAYNOW_INTEGRATION_ID=...
   - PAYNOW_INTEGRATION_KEY=...
@@ -44,7 +44,7 @@ See `.env.example`.
 - src/config/env.ts — typed env loader (Zod)
 - src/lib/apiClient.ts — fetch wrapper
 - src/lib/supabaseClient.ts — browser Supabase client
-- api/health.ts — Vercel health endpoint (GET /api/health)
+// health endpoint served by Netlify dev proxy via any function (optional)
 
 Existing UI is fully client-side; we will progressively wire it to API endpoints using React Query.
 
@@ -68,7 +68,7 @@ Create a project → copy URL and anon key to client env. Use SQL or Prisma (in 
 - EcoCash (ZW): Paynow aggregator (supports EcoCash), test available
 - MoMo: MTN MoMo Open API (collections), sandbox available
 
-All providers will call back to Vercel webhooks. Store normalized transactions in Supabase.
+All providers will call back to Netlify function webhooks. Store normalized transactions in Supabase.
 
 ## Next endpoints to add (serverless)
 
