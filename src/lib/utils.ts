@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { env } from '@/config/env'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -7,18 +8,13 @@ export function cn(...inputs: ClassValue[]) {
 
 // Get the base URL dynamically for different environments
 export function getBaseUrl(): string {
-  // In production, use the current domain
-  if (typeof window !== 'undefined') {
-    return window.location.origin
-  }
-  
-  // In development, use localhost
-  if (import.meta.env.DEV) {
-    return 'http://localhost:8080'
-  }
-  
-  // Fallback for SSR
-  return process.env.NODE_ENV === 'production' 
-    ? 'https://nardopay.com' // Replace with your actual domain
-    : 'http://localhost:8080'
+  // Prefer explicit API base URL
+  if (env.API_BASE_URL) return env.API_BASE_URL
+
+  // In browser, default to origin
+  if (typeof window !== 'undefined') return window.location.origin
+
+  // Fallbacks
+  if (import.meta.env.DEV) return 'http://localhost:8080'
+  return process.env.NODE_ENV === 'production' ? 'https://nardopay.com' : 'http://localhost:8080'
 }

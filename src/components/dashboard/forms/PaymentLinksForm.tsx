@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { apiClient } from '@/lib/apiClient';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -61,26 +62,28 @@ export const PaymentLinksForm = ({
     }));
   };
 
-  const handleCreateLink = () => {
+  const handleCreateLink = async () => {
     if (!linkFormData.title || !linkFormData.amount) return;
 
-    const newLink = {
-      id: Date.now().toString(),
-      productName: linkFormData.title, // Map title to productName
-      description: linkFormData.description,
-      amount: linkFormData.amount,
-      currency: linkFormData.currency,
-      thankYouMessage: linkFormData.thankYouMessage,
-      redirectUrl: linkFormData.redirectUrl,
-      link: `/pay/${Date.now()}`,
-      status: 'active',
-      createdAt: new Date().toISOString(),
-      payments: 0,
-      totalAmount: '0'
-    };
-
-    addPaymentLink(newLink);
-    setCreatedLinks(prev => [...prev, newLink]);
+    try {
+      const res = await apiClient.post<{ link: any }>(
+        '/api/payment-links',
+        {
+          title: linkFormData.title,
+          amount: linkFormData.amount,
+          currency: linkFormData.currency,
+          description: linkFormData.description,
+          thankYouMessage: linkFormData.thankYouMessage,
+          redirectUrl: linkFormData.redirectUrl
+        }
+      );
+      const created = res.link;
+      addPaymentLink(created);
+      setCreatedLinks(prev => [...prev, created]);
+    } catch (e) {
+      console.error('Failed to create link', e);
+      return;
+    }
     
     // Reset form
     setLinkFormData({

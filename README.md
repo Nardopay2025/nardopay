@@ -1,73 +1,88 @@
-# Welcome to your Lovable project
+# Nardopay (MVP)
 
-## Project info
+Unified payment aggregator for African merchants. Frontend is React + Vite + TypeScript with shadcn-ui. Backend will be serverless endpoints on Vercel and Supabase for auth/DB.
 
-**URL**: https://lovable.dev/projects/94435fcf-fec2-47a3-a0e0-7a0cb492b8c9
+## Stack
 
-## How can I edit this code?
+- React 18, TypeScript, Vite
+- Tailwind CSS + shadcn-ui (Radix)
+- React Router, TanStack Query
+- Vercel Functions (Node runtime) for API/Webhooks
+- Supabase (Postgres + Auth)
 
-There are several ways of editing your application.
+## Quick start
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/94435fcf-fec2-47a3-a0e0-7a0cb492b8c9) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
+```bash
 npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+cp .env.example .env # fill values
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Dev server: http://localhost:5173
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Environment
 
-**Use GitHub Codespaces**
+- Client (Vite exposes vars beginning with VITE_):
+  - VITE_API_BASE_URL=https://your-domain.com
+  - VITE_SUPABASE_URL=...
+  - VITE_SUPABASE_ANON_KEY=...
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- Server (Vercel Project Settings → Environment Variables):
+  - SUPABASE_SERVICE_ROLE_KEY=...
+  - PAYNOW_INTEGRATION_ID=...
+  - PAYNOW_INTEGRATION_KEY=...
+  - MPESA_CONSUMER_KEY=...
+  - MPESA_CONSUMER_SECRET=...
+  - MPESA_SHORTCODE=...
+  - MPESA_PASSKEY=...
+  - PAYSTACK_SECRET_KEY=...
 
-## What technologies are used for this project?
+See `.env.example`.
 
-This project is built with:
+## Project layout
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- src/config/env.ts — typed env loader (Zod)
+- src/lib/apiClient.ts — fetch wrapper
+- src/lib/supabaseClient.ts — browser Supabase client
+- api/health.ts — Vercel health endpoint (GET /api/health)
 
-## How can I deploy this project?
+Existing UI is fully client-side; we will progressively wire it to API endpoints using React Query.
 
-Simply open [Lovable](https://lovable.dev/projects/94435fcf-fec2-47a3-a0e0-7a0cb492b8c9) and click on Share -> Publish.
+## Deploy (Netlify)
 
-## Can I connect a custom domain to my Lovable project?
+1) Push to GitHub
+2) Connect repo in Netlify
+3) Build command: `npm run build`, publish: `dist`
+4) Functions dir: `netlify/functions` (already configured in `netlify.toml`)
+5) Set environment variables in Netlify UI
+6) Deploy and test: `/api/payment-links` (POST) should respond, SPA routes work via redirects
 
-Yes, you can!
+## Supabase
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+Create a project → copy URL and anon key to client env. Use SQL or Prisma (in a backend service) to create tables for `merchants`, `payment_links`, `transactions`, `webhook_events`, `withdrawals`.
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+## MVP integrations (fastest path)
+
+- Cards (Visa/Mastercard): Paystack Transactions API (NG), test keys available
+- M-Pesa (KE): Safaricom Daraja STK Push, Sandbox available
+- EcoCash (ZW): Paynow aggregator (supports EcoCash), test available
+- MoMo: MTN MoMo Open API (collections), sandbox available
+
+All providers will call back to Vercel webhooks. Store normalized transactions in Supabase.
+
+## Next endpoints to add (serverless)
+
+- POST /api/payment-links — create (persist in Supabase)
+- GET /api/payment-links/:slug — fetch
+- POST /api/checkout — initiate payment (selects provider by country/rail)
+- Webhooks:
+  - POST /api/webhooks/paystack
+  - POST /api/webhooks/mpesa
+  - POST /api/webhooks/paynow
+  - POST /api/webhooks/mtnmomo
+
+## Developer notes
+
+- Prefer env-driven config; do not hardcode URLs
+- Use idempotency keys on write endpoints
+- Verify webhook signatures before updating state
