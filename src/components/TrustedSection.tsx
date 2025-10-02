@@ -18,8 +18,11 @@ const TrustedSection = () => {
     <section className="py-16 bg-background">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-foreground mb-4">
-            Trusted by businesses of all sizes
+          <p className="text-sm text-muted-foreground mb-2">
+            Trusted by 10,000+ businesses of all sizes
+          </p>
+          <h2 className="text-3xl font-bold text-foreground">
+            Your business, powered by smarter payments
           </h2>
         </div>
         

@@ -1,20 +1,37 @@
-import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Plus, Send, History, Link as LinkIcon, Heart, Settings } from 'lucide-react';
 
 interface QuickActionsSectionProps {
-  setActiveTab: (tab: string) => void;
+  onActionClick: (action: string) => void;
 }
 
-export const QuickActionsSection = ({ setActiveTab }: QuickActionsSectionProps) => {
+export const QuickActionsSection = ({ onActionClick }: QuickActionsSectionProps) => {
+  const actions = [
+    { id: 'create-link', label: 'Create Link', icon: Plus, color: 'bg-blue-500' },
+    { id: 'send-money', label: 'Send Money', icon: Send, color: 'bg-green-500' },
+    { id: 'payment-links', label: 'Payment Links', icon: LinkIcon, color: 'bg-orange-500' },
+    { id: 'donation-links', label: 'Donations', icon: Heart, color: 'bg-pink-500' },
+    { id: 'history', label: 'History', icon: History, color: 'bg-gray-500' },
+    { id: 'settings', label: 'Settings', icon: Settings, color: 'bg-purple-500' },
+  ];
+
   return (
-    <div>
-      <h2 className="text-xl font-semibold mb-2">Quick Actions</h2>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <Button variant="outline" onClick={() => setActiveTab('create-link')}>Create Link</Button>
-        <Button variant="outline" onClick={() => setActiveTab('send-money')}>Send Money</Button>
-        <Button variant="outline" onClick={() => setActiveTab('make-payment')}>Make Payment</Button>
-        <Button variant="outline" onClick={() => setActiveTab('deposit')}>Deposit</Button>
-        <Button variant="outline" onClick={() => setActiveTab('withdraw')}>Withdraw</Button>
+    <Card className="p-6">
+      <h3 className="text-lg font-semibold text-foreground mb-4">Quick Actions</h3>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {actions.map((action) => (
+          <button
+            key={action.id}
+            onClick={() => onActionClick(action.id)}
+            className="flex flex-col items-center gap-2 p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors"
+          >
+            <div className={`${action.color} p-3 rounded-full text-white`}>
+              <action.icon className="h-5 w-5" />
+            </div>
+            <span className="text-sm font-medium text-foreground">{action.label}</span>
+          </button>
+        ))}
       </div>
-    </div>
+    </Card>
   );
-}; 
+};

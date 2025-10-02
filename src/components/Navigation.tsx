@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -11,93 +12,84 @@ import {
   ChevronDown, 
   Menu, 
   X, 
-  CreditCard, 
-  Link as LinkIcon, 
-  ShoppingCart, 
-  Wallet, 
-  Code, 
-  Building2, 
-  Rocket, 
-  Plane, 
-  Calendar, 
-  GraduationCap, 
-  Store, 
-  Truck, 
-  Zap, 
+  Link2, 
+  Package, 
+  Repeat, 
   Heart, 
+  GraduationCap, 
   BookOpen, 
   HelpCircle, 
   FileText,
   Globe,
-  DollarSign,
   TrendingUp,
-  Send
+  Users,
+  Zap
 } from "lucide-react";
 
 const Navigation = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const { user, logout } = useAuth();
 
   const productItems = [
     { 
       name: "Payment Links", 
       href: "/products/payment-links", 
       description: "Create shareable payment links instantly",
-      icon: LinkIcon 
+      icon: Link2 
+    },
+    { 
+      name: "Subscription Links", 
+      href: "/products/subscription-links", 
+      description: "Recurring payments made simple",
+      icon: Repeat 
+    },
+    { 
+      name: "Donation Links", 
+      href: "/products/donation-links", 
+      description: "Accept donations and contributions",
+      icon: Heart 
     },
     { 
       name: "Catalogue", 
       href: "/products/catalogue", 
       description: "Build your online store with ease",
-      icon: ShoppingCart 
-    },
-
-    { 
-      name: "Send", 
-      href: "/products/send", 
-      description: "Send money anywhere in Africa",
-      icon: Globe 
-    },
-    { 
-      name: "Direct Pay", 
-      href: "/products/direct-pay", 
-      description: "Pay anyone with any payment method",
-      icon: Send 
-    },
-    { 
-      name: "API", 
-      href: "/products/api", 
-      description: "Integrate payments into your app",
-      icon: Code 
+      icon: Package 
     },
   ];
 
   const solutionItems = [
     {
-      category: "By Sector", 
+      category: "By Audience", 
       items: [
         { 
-          name: "Education", 
-          href: "/solutions/education", 
-          description: "Process tuition and fees",
+          name: "Startups", 
+          href: "/solutions/startups", 
+          description: "Launch and scale fast",
+          icon: TrendingUp 
+        },
+        { 
+          name: "Freelancers", 
+          href: "/solutions/freelancers", 
+          description: "Get paid for your work instantly",
+          icon: Users 
+        },
+        { 
+          name: "Online Business", 
+          href: "/solutions/online-business", 
+          description: "Monetize your expertise",
           icon: GraduationCap 
         },
         { 
-          name: "Healthcare", 
-          href: "/solutions/healthcare", 
-          description: "Process medical payments",
-          icon: Heart 
-        },
-        { 
-          name: "Agriculture", 
-          href: "/solutions/agriculture", 
-          description: "Support farmers and agribusiness",
+          name: "Agencies", 
+          href: "/solutions/agencies", 
+          description: "Scale client payments effortlessly",
           icon: Globe 
         },
         { 
           name: "NGOs & Charities", 
           href: "/solutions/ngos", 
-          description: "Accept donations and manage funds",
+          description: "Fundraise with transparency",
           icon: Heart 
         },
       ]
@@ -106,28 +98,28 @@ const Navigation = () => {
 
   const resourceItems = [
     { 
-      name: "Documentation", 
-      href: "/docs", 
-      description: "API docs and integration guides",
-      icon: FileText 
-    },
-    { 
       name: "Blog", 
       href: "/blog", 
       description: "Latest news and insights",
       icon: BookOpen 
     },
     { 
-      name: "Help Center", 
-      href: "/help", 
-      description: "Get help and support",
-      icon: HelpCircle 
+      name: "Use Cases", 
+      href: "/use-cases", 
+      description: "See how businesses use NardoPay",
+      icon: FileText 
     },
     { 
-      name: "Status", 
-      href: "/status", 
-      description: "Check system status",
-      icon: TrendingUp 
+      name: "Countries", 
+      href: "/countries", 
+      description: "Supported countries and methods",
+      icon: Globe 
+    },
+    { 
+      name: "Integrations", 
+      href: "/integrations", 
+      description: "Payment methods we accept",
+      icon: Zap 
     },
   ];
 
@@ -210,8 +202,8 @@ const Navigation = () => {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Link to="/docs" className="text-foreground hover:text-primary transition-colors">
-              Developers
+            <Link to="/mission" className="text-foreground hover:text-primary transition-colors">
+              Our Mission
             </Link>
             
             <Link to="/pricing" className="text-foreground hover:text-primary transition-colors">
@@ -248,12 +240,25 @@ const Navigation = () => {
 
           {/* CTA Buttons */}
           <div className="hidden md:flex items-center space-x-4">
-            <Button variant="ghost" asChild>
-              <Link to="/signup">Sign Up</Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link to="/login">Log In</Link>
-            </Button>
+            {user ? (
+              <>
+                <Button variant="ghost" asChild>
+                  <Link to="/dashboard">Dashboard</Link>
+                </Button>
+                <Button variant="outline" onClick={logout}>
+                  Log Out
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="ghost" asChild>
+                  <Link to="/signup">Sign Up</Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link to="/login">Log In</Link>
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -273,16 +278,29 @@ const Navigation = () => {
             <div className="flex flex-col space-y-4">
               <Link to="/products" className="text-foreground hover:text-primary">Products</Link>
               <Link to="/solutions" className="text-foreground hover:text-primary">Solutions</Link>
-              <Link to="/developers" className="text-foreground hover:text-primary">Developers</Link>
+              <Link to="/mission" className="text-foreground hover:text-primary">Our Mission</Link>
               <Link to="/pricing" className="text-foreground hover:text-primary">Pricing</Link>
               <Link to="/resources" className="text-foreground hover:text-primary">Resources</Link>
               <div className="flex flex-col space-y-2 pt-4">
-                <Button variant="ghost" size="sm" asChild>
-                  <Link to="/signup">Sign Up</Link>
-                </Button>
-                <Button variant="outline" size="sm" asChild>
-                  <Link to="/login">Log In</Link>
-                </Button>
+                {user ? (
+                  <>
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link to="/dashboard">Dashboard</Link>
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={logout}>
+                      Log Out
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link to="/signup">Sign Up</Link>
+                    </Button>
+                    <Button variant="outline" size="sm" asChild>
+                      <Link to="/login">Log In</Link>
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>

@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Link2, Package, Wallet, Code, Send, Zap } from "lucide-react";
+import { Link2, Package, Repeat } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const ProductsSection = () => {
@@ -8,32 +8,20 @@ const ProductsSection = () => {
     {
       icon: Link2,
       title: "Payment Links",
-      description: "Create instant payment links for customers worldwide. Accept M-Pesa, cards, and bank transfers in one link.",
+      description: "Create and share payment links in seconds. Perfect for one-time sales. No website required.",
       href: "/products/payment-links"
     },
     {
       icon: Package,
       title: "Catalogue",
-      description: "Showcase your products to global customers with integrated African and international payment methods.",
+      description: "Showcase multiple products with images and prices. Your online shop, ready to share.",
       href: "/products/catalogue"
     },
     {
-      icon: Send,
-      title: "Send",
-      description: "Send money to anyone in Africa instantly. Perfect for business payments, family support, and partnerships.",
-      href: "/products/send"
-    },
-    {
-      icon: Zap,
-      title: "Direct Pay",
-      description: "Pay anyone with any payment method they prefer. From EcoCash to InnBucks, support any payment service.",
-      href: "/products/direct-pay"
-    },
-    {
-      icon: Code,
-      title: "API",
-      description: "Integrate African payment methods into your apps. Support for M-Pesa, MTN Money, and international cards.",
-      href: "/products/api"
+      icon: Repeat,
+      title: "Subscription Links",
+      description: "Set up recurring payments for memberships, subscriptions, and services. Get paid automatically.",
+      href: "/products/subscription-links"
     }
   ];
 
@@ -42,14 +30,14 @@ const ProductsSection = () => {
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center mb-16">
           <h2 className="text-4xl font-bold text-foreground mb-4">
-            Built for African business growth
+            Everything you need to get paid
           </h2>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-            From local mobile money to international cards, we provide African businesses with the tools to accept payments from anywhere and expand globally.
+            Create payment links in seconds. Accept cards, mobile money, and bank transfers. Get paid instantly from anywhere.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {products.map((product) => {
             const Icon = product.icon;
             return (

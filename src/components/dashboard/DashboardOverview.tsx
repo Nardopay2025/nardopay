@@ -1,62 +1,55 @@
-import { 
-  BalanceSection,
-  ActiveLinksSection,
-  IncomeChart,
-  RevenuePieChart,
-  VirtualCardSection,
-  DashboardHistorySection,
-  QuickActionsSection
-} from './sections';
+import { BalanceSection } from './sections/BalanceSection';
+import { QuickActionsSection } from './sections/QuickActionsSection';
+import { ActiveLinksSection } from './sections/ActiveLinksSection';
+import { HistorySection } from './sections/HistorySection';
 
 interface DashboardOverviewProps {
-  user: any;
   setActiveTab: (tab: string) => void;
-  setShowLinksModal: (show: boolean) => void;
-  createdLinks: any[];
-  createdDonationLinks: any[];
-  createdSubscriptionLinks: any[];
-  createdCatalogues: any[];
-  transfers: any[];
+  paymentLinks: any[];
+  donationLinks: any[];
+  subscriptionLinks: any[];
+  catalogues: any[];
+  transactions: any[];
 }
 
 export const DashboardOverview = ({
-  user,
   setActiveTab,
-  setShowLinksModal,
-  createdLinks,
-  createdDonationLinks,
-  createdSubscriptionLinks,
-  createdCatalogues,
-  transfers
+  paymentLinks,
+  donationLinks,
+  subscriptionLinks,
+  catalogues,
+  transactions,
 }: DashboardOverviewProps) => {
   return (
-    <div className="space-y-8">
-      {/* 1. Balance Section */}
-      <BalanceSection user={user} setActiveTab={setActiveTab} />
-
-      {/* 2. Active Links Section */}
-      <ActiveLinksSection
-        createdLinks={createdLinks}
-        createdDonationLinks={createdDonationLinks}
-        createdSubscriptionLinks={createdSubscriptionLinks}
-        createdCatalogues={createdCatalogues}
-        setShowLinksModal={setShowLinksModal}
+    <div className="space-y-6">
+      {/* Balance Section */}
+      <BalanceSection
+        onWithdraw={() => setActiveTab('withdraw')}
       />
 
-      {/* 3. Charts Section */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        <IncomeChart />
-        <RevenuePieChart />
+      {/* Quick Actions - Mobile */}
+      <div className="lg:hidden">
+        <QuickActionsSection onActionClick={setActiveTab} />
       </div>
 
-      {/* 4. Virtual Card & Subscriptions Section */}
-      <VirtualCardSection createdSubscriptionLinks={createdSubscriptionLinks} />
+      {/* Active Links */}
+      <ActiveLinksSection
+        paymentLinks={paymentLinks}
+        donationLinks={donationLinks}
+        subscriptionLinks={subscriptionLinks}
+        catalogues={catalogues}
+      />
 
-      {/* 5. History Section */}
-      <DashboardHistorySection transfers={transfers} setActiveTab={setActiveTab} />
+      {/* Transaction History */}
+      <HistorySection
+        transactions={transactions}
+        onViewAll={() => setActiveTab('history')}
+      />
 
-      {/* 6. Quick Actions Section */}
-      <QuickActionsSection setActiveTab={setActiveTab} />
+      {/* Quick Actions - Desktop */}
+      <div className="hidden lg:block">
+        <QuickActionsSection onActionClick={setActiveTab} />
+      </div>
     </div>
   );
-}; 
+};

@@ -1,0 +1,36 @@
+<<<<<<< HEAD
+project_id = "mczqwqsvumfsneoknlep"
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["https://localhost:5173"]
+enable_signup = true
+enable_email_confirmations = false
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+
+[auth.hook.send_email]
+enabled = true
+uri = "https://mczqwqsvumfsneoknlep.supabase.co/functions/v1/send-auth-email"
+
+[functions.send-auth-email]
+verify_jwt = false
+
+[functions.get-exchange-rate]
+verify_jwt = false
+
+[functions.pesapal-submit-order]
+verify_jwt = false
+
+[functions.pesapal-ipn]
+verify_jwt = false
+
+[functions.pesapal-register-ipn]
+verify_jwt = false
+=======
+project_id = "mczqwqsvumfsneoknlep"
+>>>>>>> f4c6f9adb0912405ffe729136f6135f7cecd6f48

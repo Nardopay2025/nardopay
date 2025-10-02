@@ -1,4 +1,5 @@
 import Navigation from "@/components/Navigation";
+import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,69 +23,55 @@ const Pricing = () => {
     {
       name: "Starter",
       price: "0",
-      description: "Perfect for small businesses getting started",
+      description: "Perfect for getting started",
       features: [
         "Up to $1,000 monthly volume",
-        "No transaction fees",
-        "2% fee only at withdrawal",
-        "Basic payment links",
+        "Payment links",
+        "Basic catalogue (10 products)",
+        "Donation links",
+        "Mobile money & cards",
         "Email support",
-        "Standard settlement (2-3 days)",
-        "Mobile money integration"
+        "2-3 day settlement",
+        "5% withdrawal fee"
       ],
       popular: false,
-      cta: "Get Started Free"
+      cta: "Get Started"
     },
     {
       name: "Professional",
       price: "29",
-      description: "Ideal for growing businesses",
+      description: "For growing businesses",
       features: [
-        "Up to $50,000 monthly volume",
-        "No transaction fees",
-        "2% fee only at withdrawal",
-        "Advanced payment links",
-        "Catalogue builder",
+        "Up to $5,000 monthly volume",
+        "Unlimited payment links",
+        "Full catalogue (unlimited products)",
+        "Subscription billing",
+        "Donation links",
+        "All payment methods",
         "Priority support",
-        "Faster settlement (1-2 days)",
-        "API access",
-        "Webhook notifications"
+        "1-2 day settlement",
+        "Custom branding",
+        "Webhook notifications",
+        "2% withdrawal fee"
       ],
       popular: true,
-      cta: "Start Free Trial"
+      cta: "Upgrade Now"
     },
     {
       name: "Business",
       price: "99",
       description: "For established businesses",
       features: [
-        "Up to $500,000 monthly volume",
-        "No transaction fees",
-        "2% fee only at withdrawal",
-        "All Professional features",
-        "Custom branding",
+        "Unlimited monthly volume",
+        "Everything in Professional",
         "Dedicated account manager",
         "Same-day settlement",
-        "Advanced analytics",
-        "Multi-currency support"
-      ],
-      popular: false,
-      cta: "Contact Sales"
-    },
-    {
-      name: "Enterprise",
-      price: "Custom",
-      description: "For large organizations",
-      features: [
-        "Unlimited volume",
-        "No transaction fees",
-        "2% fee only at withdrawal",
-        "All Business features",
-        "White-label solutions",
-        "24/7 dedicated support",
-        "Instant settlement",
+        "Advanced analytics & reporting",
+        "Multi-currency support",
         "Custom integrations",
-        "SLA guarantees"
+        "24/7 priority support",
+        "White-label options",
+        "1% withdrawal fee"
       ],
       popular: false,
       cta: "Contact Sales"
@@ -116,28 +103,28 @@ const Pricing = () => {
 
   const faqs = [
     {
-      question: "What fees does Nardopay charge?",
-      answer: "Nardopay charges NO transaction fees. We only charge a 2% fee when you withdraw your money to your bank account or mobile wallet."
+      question: "What fees does NardoPay charge?",
+      answer: "We charge no transaction fees on payments. Each plan has different withdrawal fees: Starter (5%), Professional (2%), Business (1%). Note: Payment providers (mobile money, banks, card networks) may charge their own fees separately."
     },
     {
-      question: "Are there any setup fees?",
-      answer: "No, there are no setup fees. You can start accepting payments immediately with our free plan."
+      question: "How does automatic billing work?",
+      answer: "When you exceed your plan's monthly volume threshold, you're automatically upgraded and billed. Your 30-day billing cycle starts immediately from that day. No setup fees or hidden charges."
     },
     {
-      question: "What about fees from payment providers?",
-      answer: "Your mobile money provider, bank, or card network may charge their own fees. These are separate from Nardopay's fees and vary by provider."
+      question: "Can I cancel anytime?",
+      answer: "Yes, you can cancel or change your plan anytime. No contracts, no commitments. If you cancel, you keep access until the end of your billing period."
     },
     {
       question: "How quickly do I receive my money?",
-      answer: "Settlement times vary by plan: Starter (2-3 days), Professional (1-2 days), Business (same-day), Enterprise (instant)."
+      answer: "Settlement times depend on your plan: Starter (2-3 days), Professional (1-2 days), Business (same-day). All settlements are automatic."
     },
     {
-      question: "Can I change plans anytime?",
-      answer: "Yes, you can upgrade or downgrade your plan at any time. Changes take effect immediately."
+      question: "What payment methods do you support?",
+      answer: "We support mobile money (M-Pesa, MTN, Airtel Money), credit/debit cards (Visa, Mastercard), bank transfers, and more across 16+ African countries."
     },
     {
       question: "Do you support international payments?",
-      answer: "Yes, we support payments from 100+ countries with automatic currency conversion."
+      answer: "Yes! Accept payments from customers worldwide. Professional and Business plans include multi-currency support with automatic conversion."
     }
   ];
 
@@ -160,17 +147,21 @@ const Pricing = () => {
                 No setup fees
               </Badge>
               <Badge variant="secondary" className="text-sm">
-                No transaction fees
+                Automatic billing
               </Badge>
               <Badge variant="secondary" className="text-sm">
-                2% fee only at withdrawal
+                Cancel anytime
               </Badge>
             </div>
+            <p className="text-sm text-muted-foreground mt-6 max-w-2xl mx-auto">
+              <strong>Note:</strong> Plans are automatically billed when you exceed your monthly volume threshold. 
+              Your 30-day billing cycle starts immediately upon upgrade.
+            </p>
           </div>
 
           {/* Pricing Plans */}
           <div className="mb-16">
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
               {plans.map((plan) => (
                 <Card 
                   key={plan.name} 
@@ -211,11 +202,8 @@ const Pricing = () => {
                       ))}
                     </ul>
                     <Button 
-                      className={`w-full mt-6 ${
-                        plan.popular 
-                          ? 'bg-blue-primary hover:bg-blue-primary/90' 
-                          : 'bg-secondary hover:bg-secondary/80'
-                      }`}
+                      variant={plan.popular ? "default" : "outline"}
+                      className="w-full mt-6"
                     >
                       {plan.cta}
                       <ArrowRight className="w-4 h-4 ml-2" />
@@ -268,8 +256,8 @@ const Pricing = () => {
                 Join thousands of businesses already using Nardopay to accept payments globally.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button className="bg-blue-primary hover:bg-blue-primary/90">
-                  Start Free Trial
+                <Button>
+                  Get Started
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
                 <Button variant="outline">
@@ -281,8 +269,9 @@ const Pricing = () => {
           </Card>
         </div>
       </div>
+      <Footer />
     </div>
   );
 };
 
-export default Pricing; 
+export default Pricing;

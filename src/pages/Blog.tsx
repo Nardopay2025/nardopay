@@ -1,3 +1,5 @@
+import Navigation from "@/components/Navigation";
+import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +19,7 @@ import {
   Shield
 } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 const Blog = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -33,69 +36,63 @@ const Blog = () => {
   const blogPosts = [
     {
       id: 1,
-      title: "The Future of Payments in Africa: Trends to Watch in 2024",
-      excerpt: "Explore the key trends shaping the future of digital payments across Africa, from mobile money adoption to cross-border transactions.",
-      author: "Kwame Osei",
-      date: "2024-01-20",
+      title: "How NardoPay Works: A Complete Guide",
+      excerpt: "Discover how NardoPay simplifies payments for African businesses with our easy-to-use platform. From payment links to global reach.",
+      author: "Yvone Khavetsa",
+      date: "2024-03-15",
       readTime: "8 min read",
-      category: "Industry Insights",
-      image: "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400&h=250&fit=crop",
-      tags: ["Payments", "Africa", "Fintech", "Trends"]
+      category: "Getting Started",
+      image: "https://images.unsplash.com/photo-1556742111-a301076d9d18?w=400&h=250&fit=crop",
+      tags: ["Guide", "Payment Processing", "Getting Started"],
+      slug: "/blog/how-nardopay-works"
     },
     {
       id: 2,
-      title: "How Nardopay is Empowering Small Businesses in Rwanda",
-      excerpt: "Discover how local businesses are using Nardopay to expand their reach and accept payments from customers worldwide.",
-      author: "Sarah Johnson",
-      date: "2024-01-18",
-      readTime: "6 min read",
-      category: "Case Studies",
-      image: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=250&fit=crop",
-      tags: ["Small Business", "Rwanda", "Success Stories"]
+      title: "NardoPay Partners with Pesapal: Visa and Mastercard Now Accepted",
+      excerpt: "Exciting news! Through our partnership with Pesapal, NardoPay users can now accept Visa and Mastercard payments from customers worldwide.",
+      author: "Yvone Khavetsa",
+      date: "2024-03-10",
+      readTime: "5 min read",
+      category: "Product Updates",
+      image: "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=400&h=250&fit=crop",
+      tags: ["Partnership", "Visa", "Mastercard", "Pesapal"],
+      slug: "/blog/pesapal-partnership"
     },
     {
       id: 3,
-      title: "New Feature: Enhanced Mobile Money Integration",
-      excerpt: "Learn about our latest mobile money integration features that make it easier for businesses to accept payments via popular mobile money services.",
-      author: "Michael Chen",
-      date: "2024-01-15",
-      readTime: "5 min read",
-      category: "Product Updates",
-      image: "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=400&h=250&fit=crop",
-      tags: ["Mobile Money", "Product", "Integration"]
+      title: "How NardoPay is Revolutionizing Finance in Africa",
+      excerpt: "From mobile money to international payments, learn how NardoPay is transforming the financial landscape for African entrepreneurs and businesses.",
+      author: "Yvone Khavetsa",
+      date: "2024-03-05",
+      readTime: "10 min read",
+      category: "Industry Insights",
+      image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&h=250&fit=crop",
+      tags: ["Fintech", "Africa", "Innovation", "Revolution"],
+      slug: "/blog/revolutionizing-finance"
     },
     {
       id: 4,
-      title: "Security Best Practices for Online Payment Processing",
-      excerpt: "Essential security practices that every business should implement when processing online payments.",
-      author: "Aisha Bello",
-      date: "2024-01-12",
-      readTime: "10 min read",
+      title: "How to Use NardoPay with Vibe Coding and AI",
+      excerpt: "Integrate NardoPay payments into your AI-powered applications and Vibe coding projects. A practical guide for developers building the future.",
+      author: "Yvone Khavetsa",
+      date: "2024-02-28",
+      readTime: "12 min read",
       category: "Tutorials",
-      image: "https://images.unsplash.com/photo-1563986768609-322da13575f3?w=400&h=250&fit=crop",
-      tags: ["Security", "Best Practices", "PCI DSS"]
+      image: "https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=400&h=250&fit=crop",
+      tags: ["AI", "Vibe Coding", "Integration", "Developer"],
+      slug: "/blog/vibe-coding-ai"
     },
     {
       id: 5,
-      title: "Cross-Border Payments: Breaking Down Barriers in Africa",
-      excerpt: "How Nardopay is simplifying cross-border payments and enabling African businesses to trade globally.",
-      author: "Kwame Osei",
-      date: "2024-01-10",
-      readTime: "7 min read",
-      category: "Industry Insights",
-      image: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=250&fit=crop",
-      tags: ["Cross-Border", "International", "Trade"]
-    },
-    {
-      id: 6,
-      title: "API Integration Guide: Getting Started with Nardopay",
-      excerpt: "Step-by-step guide to integrating Nardopay's API into your application for seamless payment processing.",
-      author: "Michael Chen",
-      date: "2024-01-08",
-      readTime: "12 min read",
-      category: "Tutorials",
-      image: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400&h=250&fit=crop",
-      tags: ["API", "Integration", "Developer"]
+      title: "How NardoPay Can Help Your E-commerce Store Succeed",
+      excerpt: "Boost your online store's conversion rates and reach global customers with NardoPay's comprehensive e-commerce payment solutions.",
+      author: "Yvone Khavetsa",
+      date: "2024-02-20",
+      readTime: "9 min read",
+      category: "E-commerce",
+      image: "https://images.unsplash.com/photo-1556742502-ec7c0e9f34b1?w=400&h=250&fit=crop",
+      tags: ["E-commerce", "Online Store", "Sales", "Growth"],
+      slug: "/blog/ecommerce-success"
     },
     {
       id: 7,
@@ -130,8 +127,10 @@ const Blog = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background py-20">
-      <div className="max-w-7xl mx-auto px-6">
+    <div className="min-h-screen bg-background">
+      <Navigation />
+      <div className="py-20">
+        <div className="max-w-7xl mx-auto px-6">
         {/* Header */}
         <div className="text-center mb-16">
           <h1 className="text-4xl font-bold text-foreground mb-6">
@@ -194,10 +193,12 @@ const Blog = () => {
                       </Badge>
                     ))}
                   </div>
-                  <Button className="bg-blue-primary hover:bg-blue-primary/90">
-                    Read Full Article
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
+                  <Link to={featuredPost.slug}>
+                    <Button className="bg-blue-primary hover:bg-blue-primary/90">
+                      Read Full Article
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </Link>
                 </div>
                 <div className="bg-muted/50 rounded-r-lg h-full min-h-[300px] flex items-center justify-center">
                   <p className="text-muted-foreground">Featured Image Placeholder</p>
@@ -254,10 +255,12 @@ const Blog = () => {
                       ))}
                     </div>
                     
-                    <Button variant="ghost" size="sm" className="text-blue-primary hover:text-blue-primary/80 p-0 h-auto">
-                      Read More
-                      <ArrowRight className="w-3 h-3 ml-1" />
-                    </Button>
+                    <Link to={post.slug}>
+                      <Button variant="ghost" size="sm" className="text-blue-primary hover:text-blue-primary/80 p-0 h-auto">
+                        Read More
+                        <ArrowRight className="w-3 h-3 ml-1" />
+                      </Button>
+                    </Link>
                   </div>
                 </CardContent>
               </Card>
@@ -285,6 +288,8 @@ const Blog = () => {
           </CardContent>
         </Card>
       </div>
+      </div>
+      <Footer />
     </div>
   );
 };

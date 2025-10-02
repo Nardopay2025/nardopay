@@ -1,40 +1,51 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate, Link } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 
-const LoginPage = () => {
+const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      const success = await login(email, password);
-      if (success) {
+      const { error } = await login(email, password);
+      
+      if (error) {
         toast({
-          title: "Login successful",
-          description: "Welcome to Nardopay Dashboard",
+          title: "Login failed",
+          description: error.message || "Please check your credentials",
+          variant: "destructive",
         });
       } else {
         toast({
-          title: "Login failed",
-          description: "Please check your credentials",
-          variant: "destructive",
+          title: "Welcome back!",
+          description: "You've successfully logged in.",
         });
+        navigate('/dashboard');
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Login error",
-        description: "Something went wrong",
+        description: error.message || "Something went wrong",
         variant: "destructive",
       });
     } finally {
@@ -43,24 +54,24 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center space-x-2 mb-4">
-            <div className="w-10 h-10 bg-gradient-primary rounded-lg flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-xl">N</span>
+          <Link to="/" className="inline-flex items-center justify-center space-x-2 mb-4 group">
+            <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center shadow-glow group-hover:shadow-xl transition-smooth">
+              <span className="text-primary-foreground font-bold text-2xl">N</span>
             </div>
-            <span className="text-2xl font-bold text-foreground">Nardopay</span>
-          </div>
+            <span className="text-3xl font-bold text-foreground">NardoPay</span>
+          </Link>
           <h1 className="text-3xl font-bold text-foreground mb-2">Welcome back</h1>
-          <p className="text-muted-foreground">Sign in to your dashboard</p>
+          <p className="text-muted-foreground">Sign in to access your dashboard</p>
         </div>
 
-        <Card className="bg-card/80 backdrop-blur-sm border-border/50">
-          <CardHeader>
-            <CardTitle>Sign In</CardTitle>
+        <Card className="bg-card backdrop-blur-sm border-border shadow-xl">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl">Sign In</CardTitle>
             <CardDescription>
-              Enter any email and password to access the demo dashboard
+              Enter your email and password to continue
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -70,10 +81,11 @@ const LoginPage = () => {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="Enter your email"
+                  placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  className="h-11"
                 />
               </div>
               <div className="space-y-2">
@@ -81,27 +93,42 @@ const LoginPage = () => {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Enter your password"
+                  placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  className="h-11"
                 />
               </div>
               <Button 
                 type="submit" 
-                className="w-full" 
-                variant="hero" 
+                className="w-full h-11 bg-gradient-primary hover:opacity-90 transition-smooth" 
                 disabled={isLoading}
               >
-                {isLoading ? "Signing in..." : "Sign In"}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  "Sign In"
+                )}
               </Button>
             </form>
             
-            <div className="mt-6 p-4 bg-blue-primary/10 rounded-lg border border-blue-primary/20">
-              <p className="text-sm text-blue-primary font-medium">Demo Mode</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Use any email and password combination to access the dashboard
+            <div className="mt-6 text-center">
+              <p className="text-sm text-muted-foreground">
+                Don't have an account?{' '}
+                <Link to="/signup" className="text-blue-primary hover:text-blue-secondary font-medium hover:underline transition-smooth">
+                  Sign up
+                </Link>
               </p>
+            </div>
+
+            <div className="mt-4 text-center">
+              <Link to="/" className="text-sm text-muted-foreground hover:text-foreground hover:underline transition-smooth">
+                ← Back to home
+              </Link>
             </div>
           </CardContent>
         </Card>
@@ -110,4 +137,4 @@ const LoginPage = () => {
   );
 };
 
-export default LoginPage;
+export default Login;

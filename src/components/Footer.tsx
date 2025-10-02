@@ -23,31 +23,30 @@ const Footer = () => {
     products: [
       { name: "Payment Links", href: "/products/payment-links" },
       { name: "Catalogue", href: "/products/catalogue" },
-      { name: "Wallet", href: "/products/wallet" },
-      { name: "Send", href: "/products/send" },
-      { name: "API", href: "/products/api" }
+      { name: "Subscription Links", href: "/products/subscription-links" },
+      { name: "Donation Links", href: "/products/donation-links" },
     ],
     solutions: [
-      { name: "Enterprises", href: "/solutions/enterprises" },
       { name: "Startups", href: "/solutions/startups" },
-      { name: "Retail", href: "/solutions/retail" },
-      { name: "Travel", href: "/solutions/travel" },
-      { name: "Events", href: "/solutions/events" },
-      { name: "Education", href: "/solutions/education" }
+      { name: "Freelancers", href: "/solutions/freelancers" },
+      { name: "Online Business", href: "/solutions/online-business" },
+      { name: "Agencies", href: "/solutions/agencies" },
+      { name: "NGOs & Charities", href: "/solutions/ngos" },
     ],
     company: [
       { name: "About Us", href: "/about" },
+      { name: "Our Mission", href: "/mission" },
       { name: "Careers", href: "/careers" },
       { name: "Press", href: "/press" },
       { name: "Blog", href: "/blog" },
       { name: "Contact", href: "/contact" }
     ],
     support: [
-      { name: "Help Center", href: "/help" },
-      { name: "Documentation", href: "/docs" },
-      { name: "API Reference", href: "/api" },
-      { name: "Status", href: "/status" },
-      { name: "Security", href: "/security" }
+      { name: "Use Cases", href: "/use-cases" },
+      { name: "Countries", href: "/countries" },
+      { name: "Integrations", href: "/integrations" },
+      { name: "Security", href: "/security" },
+      { name: "Pricing", href: "/pricing" }
     ]
   };
 
@@ -225,7 +224,7 @@ const Footer = () => {
               <Phone className="w-5 h-5 text-blue-primary" />
               <div>
                 <div className="font-medium text-foreground">Phone</div>
-                <div className="text-sm text-muted-foreground">+250 1 234 5678</div>
+                <div className="text-sm text-muted-foreground">+250 798 654 834</div>
               </div>
             </div>
             <div className="flex items-center gap-3">

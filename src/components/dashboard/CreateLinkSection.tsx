@@ -1,74 +1,74 @@
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { 
-  Link2, 
-  Heart, 
-  RefreshCw, 
-  ShoppingBag 
-} from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Link as LinkIcon, Heart, RefreshCw, ShoppingBag } from 'lucide-react';
 
 interface CreateLinkSectionProps {
-  setActiveTab: (tab: string) => void;
+  onSelectType: (type: string) => void;
 }
 
-export const CreateLinkSection = ({ setActiveTab }: CreateLinkSectionProps) => {
-  const linkOptions = [
+export const CreateLinkSection = ({ onSelectType }: CreateLinkSectionProps) => {
+  const linkTypes = [
     {
       id: 'payment-links',
-      title: 'Payment Links',
-      description: 'Create secure payment links for one-time transactions',
-      icon: Link2,
-      action: () => setActiveTab('payment-links')
+      title: 'Payment Link',
+      description: 'Create a single payment link for products or services',
+      icon: LinkIcon,
+      color: 'bg-blue-500',
     },
     {
       id: 'donation-links',
-      title: 'Donation Links',
-      description: 'Accept donations and contributions from supporters',
+      title: 'Donation Link',
+      description: 'Create a donation campaign with goal tracking',
       icon: Heart,
-      action: () => setActiveTab('donation-links')
+      color: 'bg-pink-500',
     },
     {
       id: 'subscription-links',
-      title: 'Subscription Links',
-      description: 'Set up recurring payments and subscriptions',
+      title: 'Subscription Link',
+      description: 'Create recurring subscription plans',
       icon: RefreshCw,
-      action: () => setActiveTab('subscription-links')
+      color: 'bg-purple-500',
     },
     {
       id: 'catalogue',
       title: 'Catalogue',
-      description: 'Create product catalogues for multiple items',
+      description: 'Create a product catalogue with multiple items',
       icon: ShoppingBag,
-      action: () => setActiveTab('catalogue')
-    }
+      color: 'bg-orange-500',
+    },
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Create a Link</h1>
-        <p className="text-muted-foreground">Choose the type of link you want to create</p>
+        <h2 className="text-2xl font-bold text-foreground">Create a Link</h2>
+        <p className="text-muted-foreground mt-1">
+          Choose the type of link you want to create
+        </p>
       </div>
-      
-      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {linkOptions.map((option) => {
-          const Icon = option.icon;
-          return (
-            <Card key={option.id} className="bg-card/80 backdrop-blur-sm hover:shadow-lg transition-shadow cursor-pointer" onClick={option.action}>
-              <CardHeader className="text-center">
-                <div className="mx-auto w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center mb-4">
-                  <Icon className="w-6 h-6 text-white" />
-                </div>
-                <CardTitle className="text-lg">{option.title}</CardTitle>
-              </CardHeader>
-              <CardContent className="text-center">
-                <p className="text-sm text-muted-foreground mb-4">{option.description}</p>
-                <Button className="w-full">Create {option.title}</Button>
-              </CardContent>
-            </Card>
-          );
-        })}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {linkTypes.map((type) => (
+          <Card
+            key={type.id}
+            className="p-6 cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-primary"
+            onClick={() => onSelectType(type.id)}
+          >
+            <div className="flex items-start gap-4">
+              <div className={`${type.color} p-3 rounded-lg text-white`}>
+                <type.icon className="h-6 w-6" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-foreground mb-1">
+                  {type.title}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {type.description}
+                </p>
+              </div>
+            </div>
+          </Card>
+        ))}
       </div>
     </div>
   );
-}; 
+};

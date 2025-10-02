@@ -1,164 +1,201 @@
-import { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Copy, ExternalLink, MoreVertical, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { 
-  Link2,
-  Heart,
-  RefreshCw,
-  ShoppingBag,
-  Users
-} from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useState } from 'react';
 
 interface ActiveLinksSectionProps {
-  createdLinks: any[];
-  createdDonationLinks: any[];
-  createdSubscriptionLinks: any[];
-  createdCatalogues: any[];
-  setShowLinksModal: (show: boolean) => void;
+  paymentLinks: any[];
+  donationLinks: any[];
+  subscriptionLinks: any[];
+  catalogues: any[];
 }
 
-export const ActiveLinksSection = ({ 
-  createdLinks, 
-  createdDonationLinks, 
-  createdSubscriptionLinks, 
-  createdCatalogues, 
-  setShowLinksModal 
+export const ActiveLinksSection = ({
+  paymentLinks,
+  donationLinks,
+  subscriptionLinks,
+  catalogues,
 }: ActiveLinksSectionProps) => {
-  const [showModal, setShowModal] = useState(false);
-  const totalLinks = createdLinks.length + createdDonationLinks.length + createdSubscriptionLinks.length + createdCatalogues.length;
+  const { toast } = useToast();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [linkToDelete, setLinkToDelete] = useState<{ id: string; type: string; name: string } | null>(null);
+  
+  const allLinks = [
+    ...paymentLinks.map(l => ({ ...l, type: 'Payment' })),
+    ...donationLinks.map(l => ({ ...l, type: 'Donation' })),
+    ...subscriptionLinks.map(l => ({ ...l, type: 'Subscription' })),
+    ...catalogues.map(l => ({ ...l, type: 'Catalogue' })),
+  ];
 
-  // Combine all links with their types and mock customer data
-  const getAllActiveLinks = () => {
-    const allLinks = [
-      ...createdLinks.map(link => ({
-        ...link,
-        type: 'Payment Link',
-        typeIcon: Link2,
-        customers: Math.floor(Math.random() * 50) + 5, // Mock customer count
-        status: 'active'
-      })),
-      ...createdDonationLinks.map(link => ({
-        ...link,
-        type: 'Donation Link',
-        typeIcon: Heart,
-        customers: Math.floor(Math.random() * 30) + 2,
-        status: 'active'
-      })),
-      ...createdSubscriptionLinks.map(link => ({
-        ...link,
-        type: 'Subscription Link',
-        typeIcon: RefreshCw,
-        customers: Math.floor(Math.random() * 20) + 1,
-        status: 'active'
-      })),
-      ...createdCatalogues.map(catalogue => ({
-        ...catalogue,
-        type: 'Catalogue',
-        typeIcon: ShoppingBag,
-        customers: Math.floor(Math.random() * 40) + 3,
-        status: 'active'
-      }))
-    ];
+  const copyLink = (code: string, type: string) => {
+    const baseUrl = window.location.origin;
+    let url = '';
     
-    return allLinks;
+    if (type === 'Payment') {
+      url = `${baseUrl}/pay/${code}`;
+    } else if (type === 'Donation') {
+      url = `${baseUrl}/donate/${code}`;
+    } else if (type === 'Subscription') {
+      url = `${baseUrl}/subscribe/${code}`;
+    } else if (type === 'Catalogue') {
+      url = `${baseUrl}/shop/${code}`;
+    }
+    
+    navigator.clipboard.writeText(url);
+    toast({
+      title: 'Link copied!',
+      description: `${type} link copied to clipboard`,
+    });
   };
 
-  const handleCardClick = () => {
-    setShowModal(true);
-    setShowLinksModal(true);
+  const handleDeleteClick = (link: any) => {
+    setLinkToDelete({
+      id: link.id,
+      type: link.type,
+      name: link.product_name || link.title || link.plan_name || link.name,
+    });
+    setDeleteDialogOpen(true);
   };
 
-  return (
-    <div>
-      <h2 className="text-xl font-semibold mb-2">Active Links</h2>
-      <Card className="bg-card/80 backdrop-blur-sm p-6 cursor-pointer hover:shadow-lg" onClick={handleCardClick}>
-        <div className="flex items-center justify-between">
-          <div className="text-lg font-bold text-foreground">{totalLinks}</div>
-          <div className="text-sm text-muted-foreground">Total Active Links</div>
+  const handleDeleteConfirm = async () => {
+    if (!linkToDelete) return;
+
+    const tableMap: { [key: string]: string } = {
+      Payment: 'payment_links',
+      Donation: 'donation_links',
+      Subscription: 'subscription_links',
+      Catalogue: 'catalogues',
+    };
+
+    const tableName = tableMap[linkToDelete.type] as 'payment_links' | 'donation_links' | 'subscription_links' | 'catalogues';
+
+    const { error } = await supabase
+      .from(tableName)
+      .delete()
+      .eq('id', linkToDelete.id);
+
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete link',
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Link deleted',
+        description: `${linkToDelete.type} link deleted successfully`,
+      });
+      // Refresh the page to update the list
+      window.location.reload();
+    }
+
+    setDeleteDialogOpen(false);
+    setLinkToDelete(null);
+  };
+
+  if (allLinks.length === 0) {
+    return (
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold text-foreground mb-4">Active Links</h3>
+        <div className="text-center py-8 text-muted-foreground">
+          <p>No active links yet</p>
+          <p className="text-sm mt-2">Create your first link to get started</p>
         </div>
       </Card>
+    );
+  }
 
-      {/* Active Links Modal */}
-      <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Link2 className="w-5 h-5" />
-              Active Links Overview
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            {getAllActiveLinks().length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No active links found</p>
-                <Button onClick={() => setShowModal(false)} className="mt-4">
-                  Create Your First Link
-                </Button>
+  return (
+    <Card className="p-6">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold text-foreground">Active Links</h3>
+        <Badge variant="secondary">{allLinks.length} total</Badge>
+      </div>
+      
+      <div className="space-y-3">
+        {allLinks.slice(0, 5).map((link) => (
+          <div
+            key={link.id}
+            className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-accent/50 transition-colors"
+          >
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <Badge variant="outline" className="text-xs">
+                  {link.type}
+                </Badge>
+                <span className="font-medium text-foreground truncate">
+                  {link.product_name || link.title || link.plan_name || link.name}
+                </span>
               </div>
-            ) : (
-              <div className="grid gap-4">
-                {getAllActiveLinks().map((link, index) => {
-                  const TypeIcon = link.typeIcon;
-                  return (
-                    <Card key={link.id || index} className="bg-card/80 backdrop-blur-sm">
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
-                              <TypeIcon className="w-5 h-5 text-white" />
-                            </div>
-                            <div>
-                              <h3 className="font-medium text-foreground">{link.title || link.name || `Link ${index + 1}`}</h3>
-                              <div className="flex items-center gap-2 mt-1">
-                                <Badge variant="secondary" className="text-xs">
-                                  {link.type}
-                                </Badge>
-                                <Badge variant="outline" className="text-xs">
-                                  {link.status}
-                                </Badge>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center gap-4">
-                            <div className="text-center">
-                              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                <Users className="w-4 h-4" />
-                                <span>Customers</span>
-                              </div>
-                              <div className="text-lg font-bold text-foreground">{link.customers}</div>
-                            </div>
-                            
-                            <div className="text-center">
-                              <div className="text-sm text-muted-foreground">Amount</div>
-                              <div className="text-lg font-bold text-foreground">
-                                ${link.amount ? parseFloat(link.amount).toLocaleString() : '0'}
-                              </div>
-                            </div>
-                            
-                            <Button variant="outline" size="sm">
-                              View Details
-                            </Button>
-                          </div>
-                        </div>
-                        
-                        {link.description && (
-                          <p className="text-sm text-muted-foreground mt-3">
-                            {link.description}
-                          </p>
-                        )}
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
+              <p className="text-sm text-muted-foreground">
+                {link.amount ? `${link.currency} ${link.amount}` : link.goal_amount ? `Goal: ${link.currency} ${link.goal_amount}` : 'Multiple items'}
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => copyLink(link.link_code, link.type)}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="ghost">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => handleDeleteClick(link)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+        ))}
+      </div>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Link</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{linkToDelete?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </Card>
   );
-}; 
+};

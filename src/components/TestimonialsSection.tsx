@@ -35,7 +35,7 @@ const TestimonialsSection = () => {
       role: "Operations Director",
       company: "Johannesburg, South Africa",
       rating: 5,
-      content: "The API integration was straightforward, and the documentation is excellent. We've processed millions of transactions without any issues. Nardopay is our trusted payment partner.",
+      content: "The integration was straightforward and setup was simple. We've processed millions of transactions without any issues. Nardopay is our trusted payment partner.",
       avatar: "MC",
       image: "https://images.unsplash.com/photo-1511367461989-f85a21fda167?w=150&h=150&fit=crop&crop=face"
     },
