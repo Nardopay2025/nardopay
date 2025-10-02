@@ -10,6 +10,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 // Product Pages
+import Products from "./pages/Products";
 import PaymentLinks from "./pages/products/PaymentLinks";
 import Catalogue from "./pages/products/Catalogue";
 import SubscriptionLinks from "./pages/products/SubscriptionLinks";
@@ -34,6 +35,7 @@ import TermsOfService from "./pages/TermsOfService";
 import CookiePolicy from "./pages/CookiePolicy";
 
 // Support Pages
+import Resources from "./pages/Resources";
 import Security from "./pages/Security";
 import UseCases from "./pages/UseCases";
 import Countries from "./pages/Countries";
@@ -70,6 +72,7 @@ const AppContent = () => {
       <Route path="/payment-cancel" element={<PaymentCancel />} />
       
       {/* Product Routes */}
+      <Route path="/products" element={<Products />} />
       <Route path="/products/payment-links" element={<PaymentLinks />} />
       <Route path="/products/catalogue" element={<Catalogue />} />
       <Route path="/products/subscription-links" element={<SubscriptionLinks />} />
@@ -88,6 +91,7 @@ const AppContent = () => {
       <Route path="/cookie-policy" element={<CookiePolicy />} />
       
             {/* Support Routes */}
+            <Route path="/resources" element={<Resources />} />
             <Route path="/security" element={<Security />} />
             <Route path="/use-cases" element={<UseCases />} />
             <Route path="/countries" element={<Countries />} />
