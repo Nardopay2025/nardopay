@@ -51,6 +51,19 @@ serve(async (req) => {
     );
 
     const body = await req.json();
+
+    // Health check endpoint for admin UI: do not hit external APIs, just report configuration status
+    if (body?.test === true) {
+      const configured = Boolean(
+        Deno.env.get('PESAPAL_CONSUMER_KEY') &&
+        Deno.env.get('PESAPAL_CONSUMER_SECRET') &&
+        Deno.env.get('PESAPAL_ENVIRONMENT')
+      );
+      return new Response(
+        JSON.stringify({ configured }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     const {
       linkCode,
       linkType, // 'payment', 'donation', 'catalogue', 'subscription'

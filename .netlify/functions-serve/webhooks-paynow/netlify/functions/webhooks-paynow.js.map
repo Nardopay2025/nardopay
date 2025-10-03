@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "sources": ["../../../../nardopay/netlify/functions/webhooks-paynow.ts"],
+  "sourceRoot": "C:/Users/SMOYO/AppData/Local/Temp/tmp-18404-4I1gIoxU5FmE",
+  "sourcesContent": ["import type { Handler } from '@netlify/functions'\r\nimport { createHash } from 'node:crypto'\r\n\r\nconst json = (statusCode: number, data: unknown) => ({\r\n\tstatusCode,\r\n\theaders: { 'content-type': 'application/json' },\r\n\tbody: JSON.stringify(data)\r\n})\r\n\r\n// Paynow IPN stub (EcoCash via Paynow)\r\nexport const handler: Handler = async (event) => {\r\n\tif (event.httpMethod !== 'POST') return json(405, { error: 'Method Not Allowed' })\r\n\ttry {\r\n\t\tconst body = event.body || ''\r\n\t\t// TODO: verify hash using integration key\r\n\t\t// const hash = createHash('sha512').update(body + INTEGRATION_KEY).digest('hex')\r\n\t\treturn json(200, { received: true })\r\n\t} catch (err: any) {\r\n\t\treturn json(400, { error: 'Bad Request', details: err?.message || String(err) })\r\n\t}\r\n}\r\n\r\n\r\n"],
+  "mappings": ";;;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AAGA,IAAM,OAAO,CAAC,YAAoB,UAAmB;AAAA,EACpD;AAAA,EACA,SAAS,EAAE,gBAAgB,mBAAmB;AAAA,EAC9C,MAAM,KAAK,UAAU,IAAI;AAC1B;AAGO,IAAM,UAAmB,OAAO,UAAU;AAChD,MAAI,MAAM,eAAe,OAAQ,QAAO,KAAK,KAAK,EAAE,OAAO,qBAAqB,CAAC;AACjF,MAAI;AACH,UAAM,OAAO,MAAM,QAAQ;AAG3B,WAAO,KAAK,KAAK,EAAE,UAAU,KAAK,CAAC;AAAA,EACpC,SAAS,KAAU;AAClB,WAAO,KAAK,KAAK,EAAE,OAAO,eAAe,SAAS,KAAK,WAAW,OAAO,GAAG,EAAE,CAAC;AAAA,EAChF;AACD;",
+  "names": []
+}

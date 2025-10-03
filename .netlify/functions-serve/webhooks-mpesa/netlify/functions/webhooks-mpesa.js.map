@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "sources": ["../../../../nardopay/netlify/functions/webhooks-mpesa.ts"],
+  "sourceRoot": "C:/Users/SMOYO/AppData/Local/Temp/tmp-18404-hI2koYO0mSGz",
+  "sourcesContent": ["import type { Handler } from '@netlify/functions'\r\n\r\nconst json = (statusCode: number, data: unknown) => ({\r\n\tstatusCode,\r\n\theaders: { 'content-type': 'application/json' },\r\n\tbody: JSON.stringify(data)\r\n})\r\n\r\n// Safaricom Daraja STK callback stub\r\nexport const handler: Handler = async (event) => {\r\n\tif (event.httpMethod !== 'POST') return json(405, { error: 'Method Not Allowed' })\r\n\ttry {\r\n\t\t// Parse callback body\r\n\t\tconst payload = event.body ? JSON.parse(event.body) : {}\r\n\t\t// TODO: validate origin (IP allowlist) and process ResultCode/ResultDesc\r\n\t\treturn json(200, { received: true })\r\n\t} catch (err: any) {\r\n\t\treturn json(400, { error: 'Bad Request', details: err?.message || String(err) })\r\n\t}\r\n}\r\n\r\n\r\n"],
+  "mappings": ";;;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AAEA,IAAM,OAAO,CAAC,YAAoB,UAAmB;AAAA,EACpD;AAAA,EACA,SAAS,EAAE,gBAAgB,mBAAmB;AAAA,EAC9C,MAAM,KAAK,UAAU,IAAI;AAC1B;AAGO,IAAM,UAAmB,OAAO,UAAU;AAChD,MAAI,MAAM,eAAe,OAAQ,QAAO,KAAK,KAAK,EAAE,OAAO,qBAAqB,CAAC;AACjF,MAAI;AAEH,UAAM,UAAU,MAAM,OAAO,KAAK,MAAM,MAAM,IAAI,IAAI,CAAC;AAEvD,WAAO,KAAK,KAAK,EAAE,UAAU,KAAK,CAAC;AAAA,EACpC,SAAS,KAAU;AAClB,WAAO,KAAK,KAAK,EAAE,OAAO,eAAe,SAAS,KAAK,WAAW,OAAO,GAAG,EAAE,CAAC;AAAA,EAChF;AACD;",
+  "names": []
+}

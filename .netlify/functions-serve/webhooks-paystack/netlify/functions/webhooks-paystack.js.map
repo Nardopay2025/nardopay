@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "sources": ["../../../../nardopay/netlify/functions/webhooks-paystack.ts"],
+  "sourceRoot": "C:/Users/SMOYO/AppData/Local/Temp/tmp-18404-ySKtzaqcGOHY",
+  "sourcesContent": ["import type { Handler } from '@netlify/functions'\r\nimport { createHmac } from 'node:crypto'\r\n\r\nconst json = (statusCode: number, data: unknown) => ({\r\n\tstatusCode,\r\n\theaders: { 'content-type': 'application/json' },\r\n\tbody: JSON.stringify(data)\r\n})\r\n\r\nexport const handler: Handler = async (event) => {\r\n\tif (event.httpMethod !== 'POST') return json(405, { error: 'Method Not Allowed' })\r\n    const secret = process.env.PAYSTACK_SECRET_KEY || ''\r\n    const signature = event.headers['x-paystack-signature'] || event.headers['X-Paystack-Signature']\r\n    const computed = createHmac('sha512', secret).update(event.body || '').digest('hex')\r\n\tif (!secret || !signature || signature !== computed) {\r\n\t\treturn json(401, { error: 'Invalid signature' })\r\n\t}\r\n\t// TODO: normalize event and persist\r\n\treturn json(200, { received: true })\r\n}\r\n\r\n\r\n"],
+  "mappings": ";;;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AACA,yBAA2B;AAE3B,IAAM,OAAO,CAAC,YAAoB,UAAmB;AAAA,EACpD;AAAA,EACA,SAAS,EAAE,gBAAgB,mBAAmB;AAAA,EAC9C,MAAM,KAAK,UAAU,IAAI;AAC1B;AAEO,IAAM,UAAmB,OAAO,UAAU;AAChD,MAAI,MAAM,eAAe,OAAQ,QAAO,KAAK,KAAK,EAAE,OAAO,qBAAqB,CAAC;AAC9E,QAAM,SAAS,QAAQ,IAAI,uBAAuB;AAClD,QAAM,YAAY,MAAM,QAAQ,sBAAsB,KAAK,MAAM,QAAQ,sBAAsB;AAC/F,QAAM,eAAW,+BAAW,UAAU,MAAM,EAAE,OAAO,MAAM,QAAQ,EAAE,EAAE,OAAO,KAAK;AACtF,MAAI,CAAC,UAAU,CAAC,aAAa,cAAc,UAAU;AACpD,WAAO,KAAK,KAAK,EAAE,OAAO,oBAAoB,CAAC;AAAA,EAChD;AAEA,SAAO,KAAK,KAAK,EAAE,UAAU,KAAK,CAAC;AACpC;",
+  "names": []
+}

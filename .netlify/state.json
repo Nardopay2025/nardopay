@@ -1,0 +1,19 @@
+{
+	"geolocation": {
+		"data": {
+			"city": "Harare",
+			"country": {
+				"code": "ZW",
+				"name": "Zimbabwe"
+			},
+			"subdivision": {
+				"code": "HA",
+				"name": "Harare"
+			},
+			"timezone": "Africa/Harare",
+			"latitude": -17.8394,
+			"longitude": 31.0543
+		},
+		"timestamp": 1759414005265
+	}
+}

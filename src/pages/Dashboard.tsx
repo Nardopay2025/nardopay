@@ -28,7 +28,6 @@ import { HistoryTab } from '@/components/dashboard/HistoryTab';
 import { CatalogueForm } from '@/components/dashboard/forms/CatalogueForm';
 import { SettingsForm } from '@/components/dashboard/forms/SettingsForm';
 import { CurrencySelectionDialog } from '@/components/dashboard/CurrencySelectionDialog';
-import { PesapalSetup } from '@/components/dashboard/PesapalSetup';
 
 const sidebarItems = [
   { id: 'dashboard', label: 'Dashboard', icon: Home },
@@ -259,8 +258,7 @@ const Dashboard = () => {
         return <HistoryTab />;
       case 'settings':
         return <SettingsForm />;
-      case 'pesapal-setup':
-        return <PesapalSetup />;
+      // 'pesapal-setup' removed from normal user dashboard
       default:
         return (
           <div className="text-center py-12">

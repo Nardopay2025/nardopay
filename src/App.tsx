@@ -21,6 +21,8 @@ import PaymentLinkPage from "./pages/pay/PaymentLinkPage";
 import DonationLinkPage from "./pages/pay/DonationLinkPage";
 import PaymentCallback from "./pages/PaymentCallback";
 import PaymentCancel from "./pages/PaymentCancel";
+import AdminPortal from "./pages/admin/AdminPortal";
+import PesapalAdmin from "./pages/admin/rails/PesapalAdmin";
 
 // Solution Pages
 import Startups from "./pages/solutions/Startups";
@@ -70,6 +72,9 @@ const AppContent = () => {
       <Route path="/donate/:linkCode" element={<DonationLinkPage />} />
       <Route path="/payment-callback" element={<PaymentCallback />} />
       <Route path="/payment-cancel" element={<PaymentCancel />} />
+      {/* Admin Routes */}
+      <Route path="/admin" element={<AdminPortal />} />
+      <Route path="/admin/rails/pesapal" element={<PesapalAdmin />} />
       
       {/* Product Routes */}
       <Route path="/products" element={<Products />} />
