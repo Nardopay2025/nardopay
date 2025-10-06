@@ -13,18 +13,19 @@ export const BalanceSection = ({ onWithdraw }: BalanceSectionProps) => {
   const { user } = useAuth();
   const [showBalance, setShowBalance] = useState(true);
   const [currency, setCurrency] = useState('KES');
+  const [balance, setBalance] = useState(0);
 
   useEffect(() => {
     if (user) {
-      fetchCurrency();
+      fetchBalanceAndCurrency();
     }
   }, [user]);
 
-  const fetchCurrency = async () => {
+  const fetchBalanceAndCurrency = async () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('currency')
+        .select('currency, balance')
         .eq('id', user?.id)
         .single();
 
@@ -32,8 +33,11 @@ export const BalanceSection = ({ onWithdraw }: BalanceSectionProps) => {
       if (data?.currency) {
         setCurrency(data.currency);
       }
+      if (data?.balance !== null) {
+        setBalance(Number(data.balance));
+      }
     } catch (error) {
-      console.error('Error fetching currency:', error);
+      console.error('Error fetching balance:', error);
     }
   };
   
@@ -44,7 +48,7 @@ export const BalanceSection = ({ onWithdraw }: BalanceSectionProps) => {
           <p className="text-blue-100 text-sm mb-1">Available Balance</p>
           <div className="flex items-center gap-3">
             <h2 className="text-4xl font-bold">
-              {showBalance ? `${currency} 0.00` : '••••••'}
+              {showBalance ? `${currency} ${balance.toFixed(2)}` : '••••••'}
             </h2>
             <button
               onClick={() => setShowBalance(!showBalance)}

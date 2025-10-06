@@ -66,8 +66,31 @@ serve(async (req) => {
       }
     );
 
-    // Parse IPN notification
-    const { OrderTrackingId, OrderMerchantReference, OrderNotificationType } = await req.json();
+    // Parse IPN notification - Pesapal sends form data, not JSON
+    let OrderTrackingId, OrderMerchantReference, OrderNotificationType;
+    
+    const contentType = req.headers.get('content-type') || '';
+    
+    if (contentType.includes('application/json')) {
+      const data = await req.json();
+      OrderTrackingId = data.OrderTrackingId;
+      OrderMerchantReference = data.OrderMerchantReference;
+      OrderNotificationType = data.OrderNotificationType;
+    } else {
+      // Parse as form data or query params
+      const url = new URL(req.url);
+      OrderTrackingId = url.searchParams.get('OrderTrackingId');
+      OrderMerchantReference = url.searchParams.get('OrderMerchantReference');
+      OrderNotificationType = url.searchParams.get('OrderNotificationType');
+      
+      // If not in URL, try form data
+      if (!OrderTrackingId) {
+        const formData = await req.formData();
+        OrderTrackingId = formData.get('OrderTrackingId') as string;
+        OrderMerchantReference = formData.get('OrderMerchantReference') as string;
+        OrderNotificationType = formData.get('OrderNotificationType') as string;
+      }
+    }
 
     console.log('IPN received:', {
       OrderTrackingId,
@@ -203,6 +226,75 @@ serve(async (req) => {
         } catch (webhookError) {
           console.error('Webhook call failed:', webhookError);
         }
+      }
+
+      // Send payment confirmation emails
+      try {
+        console.log('Sending payment confirmation emails');
+        
+        // Get merchant profile
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('email, full_name, business_name, balance')
+          .eq('id', transaction.user_id)
+          .single();
+
+        if (profile && transaction.metadata?.payer_email) {
+          // Determine product name based on link type
+          let productName = 'Product/Service';
+          if (linkType && linkCode) {
+            if (linkType === 'payment') {
+              const { data: link } = await supabase
+                .from('payment_links')
+                .select('product_name')
+                .eq('link_code', linkCode)
+                .single();
+              productName = link?.product_name || productName;
+            } else if (linkType === 'donation') {
+              const { data: link } = await supabase
+                .from('donation_links')
+                .select('title')
+                .eq('link_code', linkCode)
+                .single();
+              productName = link?.title || productName;
+            } else if (linkType === 'subscription') {
+              const { data: link } = await supabase
+                .from('subscription_links')
+                .select('plan_name')
+                .eq('link_code', linkCode)
+                .single();
+              productName = link?.plan_name || productName;
+            }
+          }
+
+          // Update merchant balance
+          const newBalance = (parseFloat(profile.balance || '0')) + transaction.amount;
+          await supabase
+            .from('profiles')
+            .update({ balance: newBalance })
+            .eq('id', transaction.user_id);
+
+          console.log('Balance updated:', { oldBalance: profile.balance, newBalance, amount: transaction.amount });
+
+          await supabase.functions.invoke('send-payment-emails', {
+            body: {
+              merchantEmail: profile.email,
+              merchantName: profile.full_name || 'Merchant',
+              customerEmail: transaction.metadata.payer_email,
+              customerName: transaction.metadata.payer_name || 'Customer',
+              amount: transaction.amount.toString(),
+              currency: transaction.currency,
+              productName: productName,
+              reference: transaction.reference,
+              paymentMethod: statusData.payment_method || 'Unknown',
+              businessName: profile.business_name || 'NardoPay Merchant',
+            },
+          });
+          console.log('Payment emails sent successfully');
+        }
+      } catch (emailError) {
+        console.error('Failed to send payment emails:', emailError);
+        // Don't fail the transaction if emails fail
       }
     }
 

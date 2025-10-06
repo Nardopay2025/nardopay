@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 project_id = "mczqwqsvumfsneoknlep"
 
 [auth]
@@ -31,6 +30,6 @@ verify_jwt = false
 
 [functions.pesapal-register-ipn]
 verify_jwt = false
-=======
-project_id = "mczqwqsvumfsneoknlep"
->>>>>>> f4c6f9adb0912405ffe729136f6135f7cecd6f48
+
+[functions.send-payment-emails]
+verify_jwt = false

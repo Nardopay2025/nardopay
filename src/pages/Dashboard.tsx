@@ -28,7 +28,6 @@ import { HistoryTab } from '@/components/dashboard/HistoryTab';
 import { CatalogueForm } from '@/components/dashboard/forms/CatalogueForm';
 import { SettingsForm } from '@/components/dashboard/forms/SettingsForm';
 import { CurrencySelectionDialog } from '@/components/dashboard/CurrencySelectionDialog';
-import { PesapalSetup } from '@/components/dashboard/PesapalSetup';
 
 const sidebarItems = [
   { id: 'dashboard', label: 'Dashboard', icon: Home },
@@ -37,7 +36,6 @@ const sidebarItems = [
   { id: 'withdraw', label: 'Withdraw', icon: ArrowUpRight },
   { id: 'history', label: 'History', icon: History },
   { id: 'settings', label: 'Settings', icon: Settings },
-  { id: 'pesapal-setup', label: 'Pesapal Setup', icon: Settings },
 ];
 
 function AppSidebar({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (tab: string) => void }) {
@@ -171,11 +169,11 @@ const Dashboard = () => {
         { data: cataloguesData },
         { data: transactionsData },
       ] = await Promise.all([
-        supabase.from('payment_links').select('*').order('created_at', { ascending: false }),
-        supabase.from('donation_links').select('*').order('created_at', { ascending: false }),
-        supabase.from('subscription_links').select('*').order('created_at', { ascending: false }),
-        supabase.from('catalogues').select('*').order('created_at', { ascending: false }),
-        supabase.from('transactions').select('*').order('created_at', { ascending: false }).limit(10),
+        supabase.from('payment_links').select('*').eq('user_id', user?.id).order('created_at', { ascending: false }),
+        supabase.from('donation_links').select('*').eq('user_id', user?.id).order('created_at', { ascending: false }),
+        supabase.from('subscription_links').select('*').eq('user_id', user?.id).order('created_at', { ascending: false }),
+        supabase.from('catalogues').select('*').eq('user_id', user?.id).order('created_at', { ascending: false }),
+        supabase.from('transactions').select('*').eq('user_id', user?.id).order('created_at', { ascending: false }).limit(10),
       ]);
 
       setPaymentLinks(paymentLinksData || []);
@@ -259,8 +257,6 @@ const Dashboard = () => {
         return <HistoryTab />;
       case 'settings':
         return <SettingsForm />;
-      case 'pesapal-setup':
-        return <PesapalSetup />;
       default:
         return (
           <div className="text-center py-12">

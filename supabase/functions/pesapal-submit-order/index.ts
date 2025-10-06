@@ -167,10 +167,13 @@ serve(async (req) => {
     // Get IPN notification ID (you'll need to register this first)
     const ipnId = Deno.env.get('PESAPAL_IPN_ID') || '';
 
-    // Prepare callback URLs
-    const baseUrl = Deno.env.get('SUPABASE_URL')?.replace('https://', '').split('.')[0] || '';
-    const callbackUrl = `https://${baseUrl}.lovable.app/payment-callback?transaction_id=${transactionId}`;
-    const cancelUrl = `https://${baseUrl}.lovable.app/payment-cancel?transaction_id=${transactionId}`;
+    // Prepare callback URLs - use the app's actual domain
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const projectId = supabaseUrl.replace('https://', '').split('.')[0];
+    const callbackUrl = `https://${projectId}.lovable.app/payment-callback?transaction_id=${transactionId}`;
+    const cancelUrl = `https://${projectId}.lovable.app/payment-cancel?transaction_id=${transactionId}`;
+    
+    console.log('Callback URL:', callbackUrl);
 
     // Submit order to Pesapal
     console.log('Submitting order to Pesapal...');
