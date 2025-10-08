@@ -29,7 +29,16 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.pesapal-register-ipn]
-verify_jwt = false
+verify_jwt = true
+
+[functions.setup-test-configs]
+verify_jwt = true
 
 [functions.send-payment-emails]
 verify_jwt = false
+
+[functions.pesapal-check-status]
+verify_jwt = true
+
+[functions.manage-payment-configs]
+verify_jwt = true

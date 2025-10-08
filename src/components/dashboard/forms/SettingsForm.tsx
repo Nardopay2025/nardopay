@@ -12,6 +12,21 @@ import { Loader2, Upload, User, FileText, Palette, X, Settings2, CreditCard } fr
 import { useAuth } from '@/contexts/AuthContext';
 import { COUNTRIES, getCountryByCode } from '@/lib/countries';
 import { UpgradePlanDialog } from '@/components/dashboard/UpgradePlanDialog';
+import { z } from 'zod';
+
+// Validation schemas
+const profileSchema = z.object({
+  full_name: z.string().trim().min(1, 'Name is required').max(100, 'Name must be less than 100 characters'),
+});
+
+const invoiceSchema = z.object({
+  business_name: z.string().trim().min(1, 'Business name is required').max(200, 'Business name must be less than 200 characters'),
+  business_address: z.string().max(500, 'Address must be less than 500 characters').optional(),
+  tax_id: z.string().max(50, 'Tax ID must be less than 50 characters').optional(),
+  invoice_footer: z.string().max(500, 'Footer must be less than 500 characters').optional(),
+  primary_color: z.string().regex(/^#[0-9A-F]{6}$/i, 'Invalid color format'),
+  secondary_color: z.string().regex(/^#[0-9A-F]{6}$/i, 'Invalid color format'),
+});
 
 // Preset color palettes
 const COLOR_PRESETS = [
@@ -108,9 +123,10 @@ export const SettingsForm = () => {
 
   const fetchProfile = async () => {
     try {
+      // Only fetch non-sensitive fields needed for settings UI
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, full_name, email, currency, country, plan, withdrawal_account_type')
         .eq('id', user?.id)
         .single();
 
@@ -123,11 +139,11 @@ export const SettingsForm = () => {
           country: data.country || '',
           plan: data.plan || 'free',
           withdrawal_account_type: data.withdrawal_account_type || '',
-          mobile_provider: data.mobile_provider || '',
-          mobile_number: data.mobile_number || '',
-          bank_name: data.bank_name || '',
-          bank_account_number: data.bank_account_number || '',
-          bank_account_name: data.bank_account_name || '',
+          mobile_provider: '',
+          mobile_number: '',
+          bank_name: '',
+          bank_account_number: '',
+          bank_account_name: '',
         });
       }
     } catch (error) {
@@ -264,10 +280,15 @@ export const SettingsForm = () => {
     setLoading(true);
 
     try {
+      // Validate input
+      const validated = profileSchema.parse({
+        full_name: profileData.full_name,
+      });
+
       const { error } = await supabase
         .from('profiles')
         .update({
-          full_name: profileData.full_name,
+          full_name: validated.full_name,
         })
         .eq('id', user?.id);
 
@@ -278,11 +299,19 @@ export const SettingsForm = () => {
         description: 'Profile updated successfully',
       });
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
+      if (error instanceof z.ZodError) {
+        toast({
+          title: 'Validation Error',
+          description: error.errors[0].message,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: error.message,
+          variant: 'destructive',
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -293,18 +322,28 @@ export const SettingsForm = () => {
     setLoading(true);
 
     try {
+      // Validate input
+      const validated = invoiceSchema.parse({
+        business_name: invoiceSettings.business_name,
+        business_address: invoiceSettings.business_address || '',
+        tax_id: invoiceSettings.tax_id || '',
+        invoice_footer: invoiceSettings.invoice_footer || '',
+        primary_color: invoiceSettings.primary_color,
+        secondary_color: invoiceSettings.secondary_color,
+      });
+
       // Save invoice settings to the database (profiles table)
       if (user?.id) {
         const { error } = await supabase
           .from('profiles')
           .update({
-            business_name: invoiceSettings.business_name,
-            business_address: invoiceSettings.business_address,
-            tax_id: invoiceSettings.tax_id,
-            invoice_footer: invoiceSettings.invoice_footer,
+            business_name: validated.business_name,
+            business_address: validated.business_address,
+            tax_id: validated.tax_id,
+            invoice_footer: validated.invoice_footer,
             logo_url: invoiceSettings.logo_url,
-            primary_color: invoiceSettings.primary_color,
-            secondary_color: invoiceSettings.secondary_color,
+            primary_color: validated.primary_color,
+            secondary_color: validated.secondary_color,
           })
           .eq('id', user.id);
 
@@ -316,11 +355,19 @@ export const SettingsForm = () => {
         description: 'Invoice settings updated successfully',
       });
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
+      if (error instanceof z.ZodError) {
+        toast({
+          title: 'Validation Error',
+          description: error.errors[0].message,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: error.message,
+          variant: 'destructive',
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -439,36 +486,11 @@ export const SettingsForm = () => {
                 <div className="p-4 bg-muted rounded-lg space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Account Type</span>
-                    <span className="text-sm capitalize">{profileData.withdrawal_account_type === 'mobile' ? 'Mobile Money' : 'Bank Account'}</span>
+                    <span className="text-sm capitalize">{profileData.withdrawal_account_type === 'mobile' ? 'Mobile Money Account' : 'Bank Account'}</span>
                   </div>
-                  
-                  {profileData.withdrawal_account_type === 'mobile' ? (
-                    <>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Provider</span>
-                        <span className="text-sm">{profileData.mobile_provider}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Phone Number</span>
-                        <span className="text-sm">{profileData.mobile_number}</span>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Bank</span>
-                        <span className="text-sm">{profileData.bank_name}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Account Number</span>
-                        <span className="text-sm">{profileData.bank_account_number}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Account Name</span>
-                        <span className="text-sm">{profileData.bank_account_name}</span>
-                      </div>
-                    </>
-                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Account details are securely stored. To change, contact support.
+                  </p>
                 </div>
               ) : (
                 <div className="p-4 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200 dark:border-yellow-800">

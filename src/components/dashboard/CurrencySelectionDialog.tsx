@@ -14,6 +14,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Smartphone, Building } from 'lucide-react';
 import { COUNTRIES, getCountryByCode, getCurrencyForCountry } from '@/lib/countries';
+import { z } from 'zod';
+
+// Validation schemas
+const withdrawalSchema = z.object({
+  mobile_number: z.string().regex(/^\+?[1-9]\d{1,14}$/, 'Invalid phone number format').optional().or(z.literal('')),
+  bank_account_number: z.string().min(5, 'Account number must be at least 5 characters').max(34, 'Account number must be less than 34 characters').optional().or(z.literal('')),
+  bank_account_name: z.string().min(1, 'Account name is required').max(100, 'Account name must be less than 100 characters').optional().or(z.literal('')),
+});
 
 interface CurrencySelectionDialogProps {
   open: boolean;
@@ -58,12 +66,25 @@ export const CurrencySelectionDialog = ({ open, userId, onComplete }: CurrencySe
         if (!withdrawalData.mobile_provider || !withdrawalData.mobile_number) {
           throw new Error('Please fill in all mobile money fields');
         }
+        
+        // Validate mobile number format
+        const validated = withdrawalSchema.parse({
+          mobile_number: withdrawalData.mobile_number,
+        });
+        
         updateData.mobile_provider = withdrawalData.mobile_provider;
         updateData.mobile_number = withdrawalData.mobile_number;
       } else {
         if (!withdrawalData.bank_name || !withdrawalData.bank_account_number || !withdrawalData.bank_account_name) {
           throw new Error('Please fill in all bank account fields');
         }
+        
+        // Validate bank account fields
+        const validated = withdrawalSchema.parse({
+          bank_account_number: withdrawalData.bank_account_number,
+          bank_account_name: withdrawalData.bank_account_name,
+        });
+        
         updateData.bank_name = withdrawalData.bank_name;
         updateData.bank_account_number = withdrawalData.bank_account_number;
         updateData.bank_account_name = withdrawalData.bank_account_name;
@@ -83,11 +104,19 @@ export const CurrencySelectionDialog = ({ open, userId, onComplete }: CurrencySe
 
       onComplete();
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
+      if (error instanceof z.ZodError) {
+        toast({
+          title: 'Validation Error',
+          description: error.errors[0].message,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: error.message,
+          variant: 'destructive',
+        });
+      }
     } finally {
       setLoading(false);
     }

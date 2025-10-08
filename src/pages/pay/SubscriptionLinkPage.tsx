@@ -5,9 +5,8 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Building2, Smartphone, RefreshCw, Check } from 'lucide-react';
+import { Loader2, RefreshCw, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function SubscriptionLinkPage() {
@@ -19,9 +18,7 @@ export default function SubscriptionLinkPage() {
   const [invoiceSettings, setInvoiceSettings] = useState<any>(null);
   const [subscriberName, setSubscriberName] = useState('');
   const [subscriberEmail, setSubscriberEmail] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'mobile' | 'bank'>('mobile');
   const [processing, setProcessing] = useState(false);
-  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (linkCode) {
@@ -31,8 +28,9 @@ export default function SubscriptionLinkPage() {
 
   const fetchSubscriptionLink = async () => {
     try {
+      // Use secure public view to avoid exposing sensitive fields
       const { data, error } = await supabase
-        .from('subscription_links')
+        .from('public_subscription_links')
         .select('*')
         .eq('link_code', linkCode)
         .limit(1);
@@ -48,17 +46,17 @@ export default function SubscriptionLinkPage() {
       setSubscriptionLink(row);
 
       const { data: profileData } = await supabase
-        .from('profiles')
-        .select('business_name, business_address, tax_id, invoice_footer, logo_url, primary_color, secondary_color')
+        .from('safe_profiles')
+        .select('business_name, logo_url, primary_color, secondary_color')
         .eq('id', row.user_id)
         .single();
 
       if (profileData && profileData.business_name) {
         setInvoiceSettings({
           business_name: profileData.business_name || 'NardoPay',
-          business_address: profileData.business_address || '',
-          tax_id: profileData.tax_id || '',
-          invoice_footer: profileData.invoice_footer || '',
+          business_address: '',
+          tax_id: '',
+          invoice_footer: '',
           logo_url: profileData.logo_url || '',
           primary_color: profileData.primary_color || '#8B5CF6',
           secondary_color: profileData.secondary_color || '#7C3AED',
@@ -83,43 +81,16 @@ export default function SubscriptionLinkPage() {
     }
   };
 
-  const handleSubscription = async (e: React.FormEvent) => {
+  const handleSubscription = (e: React.FormEvent) => {
     e.preventDefault();
-    setProcessing(true);
 
-    try {
-      toast({
-        title: 'Processing Subscription',
-        description: 'Redirecting to payment gateway...',
-      });
-
-      const { data, error } = await supabase.functions.invoke('pesapal-submit-order', {
-        body: {
-          linkCode,
-          linkType: 'subscription',
-          payerName: subscriberName,
-          payerEmail: subscriberEmail,
-          paymentMethod,
-        },
-      });
-
-      if (error) throw error;
-
-      if (data?.redirect_url) {
-        setPaymentUrl(data.redirect_url);
-        setProcessing(false);
-      } else {
-        throw new Error('No payment URL received');
-      }
-    } catch (error: any) {
-      console.error('Subscription error:', error);
-      toast({
-        title: 'Subscription Failed',
-        description: error.message || 'Failed to initiate subscription',
-        variant: 'destructive',
-      });
-      setProcessing(false);
-    }
+    // Navigate to checkout page with customer details
+    const params = new URLSearchParams({
+      name: subscriberName,
+      email: subscriberEmail,
+    });
+    
+    navigate(`/pay/subscribe/${linkCode}/checkout?${params.toString()}`);
   };
 
   if (loading) {
@@ -133,67 +104,6 @@ export default function SubscriptionLinkPage() {
   const primaryColor = invoiceSettings?.primary_color || '#8B5CF6';
   const secondaryColor = invoiceSettings?.secondary_color || '#7C3AED';
   const businessName = invoiceSettings?.business_name || 'Business';
-
-  if (paymentUrl) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background to-muted">
-        <div 
-          className="p-6 text-white shadow-xl relative overflow-hidden"
-          style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
-        >
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-0 left-0 w-64 h-64 bg-white rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
-            <div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
-          </div>
-          
-          <div className="max-w-7xl mx-auto relative z-10">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-4">
-                {invoiceSettings?.logo_url ? (
-                  <img 
-                    src={invoiceSettings.logo_url} 
-                    alt={businessName}
-                    className="h-12 object-contain bg-white/10 backdrop-blur-sm rounded-lg p-2"
-                  />
-                ) : (
-                  <h1 className="text-2xl font-bold">{businessName}</h1>
-                )}
-              </div>
-              <div className="text-right">
-                <div className="text-white/80 text-sm mb-1">Subscription #{linkCode?.slice(0, 8).toUpperCase()}</div>
-                <div className="text-2xl font-bold">
-                  {subscriptionLink.currency} {parseFloat(subscriptionLink.amount).toFixed(2)} / {subscriptionLink.billing_cycle}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="max-w-7xl mx-auto p-6">
-          <div className="bg-card rounded-xl shadow-2xl overflow-hidden border border-border">
-            <div className="bg-muted/50 px-6 py-3 border-b border-border flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                </svg>
-                Powered by NardoPay
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Encrypted & Secure Payment
-              </div>
-            </div>
-            
-            <iframe
-              src={paymentUrl}
-              className="w-full border-0 bg-background"
-              style={{ height: 'calc(100vh - 280px)', minHeight: '500px' }}
-              title="Secure Payment Gateway"
-            />
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -292,31 +202,6 @@ export default function SubscriptionLinkPage() {
               </div>
             </div>
 
-            <div className="space-y-4">
-              <h3 className="font-semibold">Payment Method</h3>
-              <RadioGroup value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as 'mobile' | 'bank')}>
-                <div className="flex items-center space-x-2 border border-border rounded-lg p-4 cursor-pointer hover:border-primary transition-colors">
-                  <RadioGroupItem value="mobile" id="mobile" />
-                  <Label htmlFor="mobile" className="flex items-center gap-2 cursor-pointer flex-1">
-                    <Smartphone className="h-5 w-5" style={{ color: primaryColor }} />
-                    <div>
-                      <p className="font-medium">Mobile Money</p>
-                      <p className="text-xs text-muted-foreground">Pay via M-Pesa, Airtel Money, etc.</p>
-                    </div>
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2 border border-border rounded-lg p-4 cursor-pointer hover:border-primary transition-colors">
-                  <RadioGroupItem value="bank" id="bank" />
-                  <Label htmlFor="bank" className="flex items-center gap-2 cursor-pointer flex-1">
-                    <Building2 className="h-5 w-5" style={{ color: primaryColor }} />
-                    <div>
-                      <p className="font-medium">Bank Transfer</p>
-                      <p className="text-xs text-muted-foreground">Pay via bank account</p>
-                    </div>
-                  </Label>
-                </div>
-              </RadioGroup>
-            </div>
 
             <div className="bg-muted/30 rounded-lg p-4 text-sm text-muted-foreground">
               <p className="flex items-start gap-2">

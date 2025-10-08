@@ -1,0 +1,7 @@
+{
+  "imports": {
+    "react": "npm:react@18.3.1",
+    "@react-email/components": "https://esm.sh/@react-email/components@0.0.22",
+    "resend": "https://esm.sh/resend@4.0.0"
+  }
+}

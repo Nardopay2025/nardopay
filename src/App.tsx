@@ -21,8 +21,10 @@ import PaymentLinkPage from "./pages/pay/PaymentLinkPage";
 import DonationLinkPage from "./pages/pay/DonationLinkPage";
 import CatalogueLinkPage from "./pages/pay/CatalogueLinkPage";
 import SubscriptionLinkPage from "./pages/pay/SubscriptionLinkPage";
+import CheckoutPage from "./pages/pay/CheckoutPage";
 import PaymentCallback from "./pages/PaymentCallback";
 import PaymentCancel from "./pages/PaymentCancel";
+import AdminDashboard from "./pages/admin/Dashboard";
 
 // Solution Pages
 import Startups from "./pages/solutions/Startups";
@@ -66,12 +68,18 @@ const AppContent = () => {
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/admin/*" element={<AdminDashboard />} />
       
       {/* Payment Link Routes - These must come before product routes */}
       <Route path="/pay/:linkCode" element={<PaymentLinkPage />} />
       <Route path="/donate/:linkCode" element={<DonationLinkPage />} />
       <Route path="/catalogue/:linkCode" element={<CatalogueLinkPage />} />
+      <Route path="/shop/:linkCode" element={<CatalogueLinkPage />} />
       <Route path="/subscribe/:linkCode" element={<SubscriptionLinkPage />} />
+      
+      {/* Checkout Route */}
+      <Route path="/pay/:linkType/:linkCode/checkout" element={<CheckoutPage />} />
+      
       <Route path="/payment-callback" element={<PaymentCallback />} />
       <Route path="/payment-cancel" element={<PaymentCancel />} />
       

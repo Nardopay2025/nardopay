@@ -5,37 +5,56 @@ const PESAPAL_BASE_URL = Deno.env.get('PESAPAL_ENVIRONMENT') === 'production'
   ? 'https://pay.pesapal.com/v3'
   : 'https://cybqa.pesapal.com/pesapalv3';
 
-async function getPesapalToken() {
-  const consumer_key = Deno.env.get('PESAPAL_CONSUMER_KEY');
-  const consumer_secret = Deno.env.get('PESAPAL_CONSUMER_SECRET');
-
-  console.log('Requesting Pesapal authentication token for IPN...');
+async function getPesapalToken(countryCode: string, supabase: any) {
+  console.log('Requesting Pesapal authentication token for IPN...', countryCode);
   
-  const response = await fetch(`${PESAPAL_BASE_URL}/api/Auth/RequestToken`, {
+  // Get country-specific credentials from database
+  const { data: config } = await supabase
+    .from('payment_provider_configs')
+    .select('consumer_key, consumer_secret, environment')
+    .eq('country_code', countryCode)
+    .eq('provider', 'pesapal')
+    .eq('is_active', true)
+    .single();
+
+  if (!config) {
+    console.error('No active Pesapal config found for country:', countryCode);
+    throw new Error(`No active Pesapal config for country ${countryCode}`);
+  }
+
+  const baseUrl = config.environment === 'production'
+    ? 'https://pay.pesapal.com/v3'
+    : 'https://cybqa.pesapal.com/pesapalv3';
+
+  console.log('Using credentials for country:', countryCode, 'environment:', config.environment);
+  
+  const response = await fetch(`${baseUrl}/api/Auth/RequestToken`, {
     method: 'POST',
     headers: {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      consumer_key,
-      consumer_secret,
+      consumer_key: config.consumer_key,
+      consumer_secret: config.consumer_secret,
     }),
   });
 
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Pesapal auth failed:', errorText);
     throw new Error('Pesapal authentication failed');
   }
 
   const data = await response.json();
-  return data.token;
+  return { token: data.token, baseUrl };
 }
 
-async function getTransactionStatus(orderTrackingId: string, token: string) {
-  console.log('Fetching transaction status for:', orderTrackingId);
+async function getTransactionStatus(orderTrackingId: string, token: string, baseUrl: string) {
+  console.log('Fetching transaction status for:', orderTrackingId, 'from', baseUrl);
   
   const response = await fetch(
-    `${PESAPAL_BASE_URL}/api/Transactions/GetTransactionStatus?orderTrackingId=${orderTrackingId}`,
+    `${baseUrl}/api/Transactions/GetTransactionStatus?orderTrackingId=${orderTrackingId}`,
     {
       method: 'GET',
       headers: {
@@ -47,14 +66,46 @@ async function getTransactionStatus(orderTrackingId: string, token: string) {
   );
 
   if (!response.ok) {
-    throw new Error('Failed to get transaction status');
+    const errorText = await response.text();
+    console.error('Get transaction status failed:', errorText);
+    throw new Error('Failed to get transaction status: ' + errorText);
   }
 
   return await response.json();
 }
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
   try {
+    console.log('=== IPN CALLBACK RECEIVED ===');
+    console.log('Method:', req.method);
+    console.log('Headers:', Object.fromEntries(req.headers.entries()));
+    
+    // SECURITY: Log source IP for security auditing and potential IP whitelisting
+    const sourceIP = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+    console.log('Source IP:', sourceIP);
+    
+    // SECURITY NOTE: Pesapal does not provide HMAC signatures for IPN validation.
+    // Defense-in-depth measures implemented:
+    // 1. We ALWAYS verify payment status directly with Pesapal API (line ~165)
+    // 2. Source IP is logged for forensic analysis
+    // 3. Transaction status is only updated if Pesapal API confirms it
+    // 4. Idempotency: Multiple IPNs for same transaction are handled safely
+    // 
+    // FUTURE ENHANCEMENTS:
+    // - Implement rate limiting (max N IPNs per transaction per minute)
+    // - Add IP whitelisting if Pesapal provides static IP ranges
+    // - Monitor for suspicious patterns (same IP, different transactions)
+    
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -96,17 +147,19 @@ serve(async (req) => {
       OrderTrackingId,
       OrderMerchantReference,
       OrderNotificationType,
+      sourceIP, // Log for security auditing
     });
 
-    // Get Pesapal token
-    const token = await getPesapalToken();
+    // SECURITY: Validate required IPN parameters
+    if (!OrderTrackingId) {
+      console.error('IPN validation failed: Missing OrderTrackingId');
+      return new Response(
+        JSON.stringify({ error: 'Missing required parameter: OrderTrackingId' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    // Get transaction status from Pesapal
-    const statusData = await getTransactionStatus(OrderTrackingId, token);
-
-    console.log('Transaction status:', statusData);
-
-    // Find transaction by reference
+    // Find transaction first
     const { data: transaction, error: txError } = await supabase
       .from('transactions')
       .select('*')
@@ -114,12 +167,30 @@ serve(async (req) => {
       .single();
 
     if (txError || !transaction) {
-      console.error('Transaction not found:', OrderTrackingId);
+      console.error('Transaction not found:', OrderTrackingId, txError);
       return new Response(
         JSON.stringify({ message: 'Transaction not found' }),
-        { status: 404, headers: { 'Content-Type': 'application/json' } }
+        { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
+
+    // Fetch user profile to get country
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('country')
+      .eq('id', transaction.user_id)
+      .single();
+
+    const countryCode = profile?.country || 'KE';
+    console.log('Transaction found for country:', countryCode);
+
+    // Get Pesapal token with country-specific credentials
+    const { token, baseUrl } = await getPesapalToken(countryCode, supabase);
+
+    // Get transaction status from Pesapal
+    const statusData = await getTransactionStatus(OrderTrackingId, token, baseUrl);
+
+    console.log('Transaction status from Pesapal:', statusData);
 
     // Map Pesapal status to our status
     let newStatus = 'pending';
@@ -298,15 +369,17 @@ serve(async (req) => {
       }
     }
 
+    console.log('=== IPN PROCESSED SUCCESSFULLY ===');
     return new Response(
       JSON.stringify({ message: 'IPN processed successfully' }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error: any) {
-    console.error('Error in pesapal-ipn:', error);
+    console.error('[Internal] IPN processing error:', error);
+    // Return generic error to external caller (Pesapal)
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: 'IPN_PROCESSING_FAILED', code: 'E007' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

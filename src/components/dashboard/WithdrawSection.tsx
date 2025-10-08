@@ -25,9 +25,10 @@ export const WithdrawSection = () => {
 
   const fetchProfile = async () => {
     try {
+      // Only fetch non-sensitive fields needed for withdrawal UI
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, country, currency, withdrawal_account_type, balance')
         .eq('id', user?.id)
         .single();
 
@@ -109,9 +110,10 @@ export const WithdrawSection = () => {
     }
   };
 
+  // Display withdrawal method type only, not sensitive account details
   const withdrawalMethod = profile.withdrawal_account_type === 'mobile' 
-    ? `${profile.mobile_provider} - ${profile.mobile_number}`
-    : `${profile.bank_name} - ${profile.bank_account_number}`;
+    ? 'Mobile Money Account'
+    : 'Bank Account';
 
   return (
     <div className="space-y-6">
@@ -136,7 +138,7 @@ export const WithdrawSection = () => {
             </div>
             <p className="text-sm text-muted-foreground">{withdrawalMethod}</p>
             <p className="text-xs text-muted-foreground">
-              To change this, go to Settings
+              Account details are securely stored. To change, go to Settings.
             </p>
           </div>
 
@@ -154,7 +156,7 @@ export const WithdrawSection = () => {
               className="text-lg"
             />
             <p className="text-sm text-muted-foreground mt-1">
-              Available balance: {profile.currency} 0.00
+              Available balance: {profile.currency} {Number(profile.balance || 0).toFixed(2)}
             </p>
           </div>
 

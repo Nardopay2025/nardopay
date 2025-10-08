@@ -5,9 +5,8 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Heart, Building2, Smartphone } from 'lucide-react';
+import { Loader2, Heart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function DonationLinkPage() {
@@ -20,7 +19,6 @@ export default function DonationLinkPage() {
   const [donorName, setDonorName] = useState('');
   const [donorEmail, setDonorEmail] = useState('');
   const [donationAmount, setDonationAmount] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'mobile' | 'bank'>('mobile');
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
@@ -31,8 +29,9 @@ export default function DonationLinkPage() {
 
   const fetchDonationLink = async () => {
     try {
+      // Use secure public view to avoid exposing sensitive fields
       const { data, error } = await supabase
-        .from('donation_links')
+        .from('public_donation_links')
         .select('*')
         .eq('link_code', linkCode)
         .limit(1);
@@ -52,10 +51,10 @@ export default function DonationLinkPage() {
       console.log('Donation link found:', row);
       setDonationLink(row);
       
-      // Fetch merchant's branding settings from profiles table
+      // Fetch merchant's branding settings from safe_profiles view (no PII exposure)
       const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('business_name, business_address, tax_id, invoice_footer, logo_url, primary_color, secondary_color')
+        .from('safe_profiles')
+        .select('business_name, logo_url, primary_color, secondary_color')
         .eq('id', row.user_id)
         .single();
 
@@ -66,9 +65,9 @@ export default function DonationLinkPage() {
       if (profileData && profileData.business_name) {
         setInvoiceSettings({
           business_name: profileData.business_name || 'NardoPay',
-          business_address: profileData.business_address || '',
-          tax_id: profileData.tax_id || '',
-          invoice_footer: profileData.invoice_footer || '',
+          business_address: '',
+          tax_id: '',
+          invoice_footer: '',
           logo_url: profileData.logo_url || '',
           primary_color: profileData.primary_color || '#EF4444',
           secondary_color: profileData.secondary_color || '#DC2626',
@@ -94,55 +93,26 @@ export default function DonationLinkPage() {
     }
   };
 
-  const handleDonation = async (e: React.FormEvent) => {
+  const handleDonation = (e: React.FormEvent) => {
     e.preventDefault();
-    setProcessing(true);
 
-    try {
-      if (!donationAmount || parseFloat(donationAmount) <= 0) {
-        toast({
-          title: 'Invalid Amount',
-          description: 'Please enter a valid donation amount',
-          variant: 'destructive',
-        });
-        setProcessing(false);
-        return;
-      }
-
+    if (!donationAmount || parseFloat(donationAmount) <= 0) {
       toast({
-        title: 'Processing Donation',
-        description: 'Redirecting to payment gateway...',
-      });
-
-      // Call Pesapal edge function to submit order
-      const { data, error } = await supabase.functions.invoke('pesapal-submit-order', {
-        body: {
-          linkCode,
-          linkType: 'donation',
-          payerName: donorName,
-          payerEmail: donorEmail,
-          paymentMethod,
-          donationAmount,
-        },
-      });
-
-      if (error) throw error;
-
-      if (data?.redirect_url) {
-        // Redirect to Pesapal payment page
-        window.location.href = data.redirect_url;
-      } else {
-        throw new Error('No payment URL received');
-      }
-    } catch (error: any) {
-      console.error('Donation error:', error);
-      toast({
-        title: 'Donation Failed',
-        description: error.message || 'Failed to process donation',
+        title: 'Invalid Amount',
+        description: 'Please enter a valid donation amount',
         variant: 'destructive',
       });
-      setProcessing(false);
+      return;
     }
+
+    // Navigate to checkout page with customer details and donation amount
+    const params = new URLSearchParams({
+      name: donorName,
+      email: donorEmail,
+      amount: donationAmount,
+    });
+    
+    navigate(`/pay/donate/${linkCode}/checkout?${params.toString()}`);
   };
 
   if (loading) {
@@ -272,32 +242,6 @@ export default function DonationLinkPage() {
               </div>
             </div>
 
-            {/* Payment Method Selection */}
-            <div className="space-y-4">
-              <h3 className="font-semibold">Payment Method</h3>
-              <RadioGroup value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as 'mobile' | 'bank')}>
-                <div className="flex items-center space-x-2 border border-border rounded-lg p-4 cursor-pointer hover:border-primary transition-colors">
-                  <RadioGroupItem value="mobile" id="mobile" />
-                  <Label htmlFor="mobile" className="flex items-center gap-2 cursor-pointer flex-1">
-                    <Smartphone className="h-5 w-5" style={{ color: primaryColor }} />
-                    <div>
-                      <p className="font-medium">Mobile Money</p>
-                      <p className="text-xs text-muted-foreground">Pay via M-Pesa, Airtel Money, etc.</p>
-                    </div>
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2 border border-border rounded-lg p-4 cursor-pointer hover:border-primary transition-colors">
-                  <RadioGroupItem value="bank" id="bank" />
-                  <Label htmlFor="bank" className="flex items-center gap-2 cursor-pointer flex-1">
-                    <Building2 className="h-5 w-5" style={{ color: primaryColor }} />
-                    <div>
-                      <p className="font-medium">Bank Transfer</p>
-                      <p className="text-xs text-muted-foreground">Pay via bank account</p>
-                    </div>
-                  </Label>
-                </div>
-              </RadioGroup>
-            </div>
 
             <Button 
               type="submit" 

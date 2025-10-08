@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_audit_logs: {
+        Row: {
+          action: string
+          admin_user_id: string | null
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          target_user_id: string | null
+        }
+        Insert: {
+          action: string
+          admin_user_id?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          target_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          admin_user_id?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          target_user_id?: string | null
+        }
+        Relationships: []
+      }
       catalogue_items: {
         Row: {
           catalogue_id: string
@@ -154,6 +181,42 @@ export type Database = {
         }
         Relationships: []
       }
+      merchant_payment_configs: {
+        Row: {
+          consumer_key: string
+          consumer_secret: string
+          created_at: string | null
+          id: string
+          ipn_id: string | null
+          is_active: boolean | null
+          provider: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          consumer_key: string
+          consumer_secret: string
+          created_at?: string | null
+          id?: string
+          ipn_id?: string | null
+          is_active?: boolean | null
+          provider: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          consumer_key?: string
+          consumer_secret?: string
+          created_at?: string | null
+          id?: string
+          ipn_id?: string | null
+          is_active?: boolean | null
+          provider?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       payment_links: {
         Row: {
           amount: number
@@ -208,6 +271,45 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_provider_configs: {
+        Row: {
+          consumer_key: string
+          consumer_secret: string
+          country_code: string
+          created_at: string | null
+          environment: string
+          id: string
+          ipn_id: string | null
+          is_active: boolean | null
+          provider: string
+          updated_at: string | null
+        }
+        Insert: {
+          consumer_key: string
+          consumer_secret: string
+          country_code: string
+          created_at?: string | null
+          environment?: string
+          id?: string
+          ipn_id?: string | null
+          is_active?: boolean | null
+          provider: string
+          updated_at?: string | null
+        }
+        Update: {
+          consumer_key?: string
+          consumer_secret?: string
+          country_code?: string
+          created_at?: string | null
+          environment?: string
+          id?: string
+          ipn_id?: string | null
+          is_active?: boolean | null
+          provider?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -230,6 +332,7 @@ export type Database = {
           mobile_provider: string | null
           plan: string | null
           primary_color: string | null
+          role: string | null
           secondary_color: string | null
           tax_id: string | null
           updated_at: string
@@ -256,6 +359,7 @@ export type Database = {
           mobile_provider?: string | null
           plan?: string | null
           primary_color?: string | null
+          role?: string | null
           secondary_color?: string | null
           tax_id?: string | null
           updated_at?: string
@@ -282,6 +386,7 @@ export type Database = {
           mobile_provider?: string | null
           plan?: string | null
           primary_color?: string | null
+          role?: string | null
           secondary_color?: string | null
           tax_id?: string | null
           updated_at?: string
@@ -394,15 +499,230 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      public_donation_links: {
+        Row: {
+          created_at: string | null
+          currency: string | null
+          current_amount: number | null
+          description: string | null
+          donations_count: number | null
+          goal_amount: number | null
+          id: string | null
+          link_code: string | null
+          redirect_url: string | null
+          status: string | null
+          thank_you_message: string | null
+          title: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          currency?: string | null
+          current_amount?: number | null
+          description?: string | null
+          donations_count?: number | null
+          goal_amount?: number | null
+          id?: string | null
+          link_code?: string | null
+          redirect_url?: string | null
+          status?: string | null
+          thank_you_message?: string | null
+          title?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string | null
+          current_amount?: number | null
+          description?: string | null
+          donations_count?: number | null
+          goal_amount?: number | null
+          id?: string | null
+          link_code?: string | null
+          redirect_url?: string | null
+          status?: string | null
+          thank_you_message?: string | null
+          title?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      public_payment_links: {
+        Row: {
+          amount: number | null
+          created_at: string | null
+          currency: string | null
+          description: string | null
+          id: string | null
+          link_code: string | null
+          product_name: string | null
+          redirect_url: string | null
+          status: string | null
+          thank_you_message: string | null
+          user_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          id?: string | null
+          link_code?: string | null
+          product_name?: string | null
+          redirect_url?: string | null
+          status?: string | null
+          thank_you_message?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          id?: string | null
+          link_code?: string | null
+          product_name?: string | null
+          redirect_url?: string | null
+          status?: string | null
+          thank_you_message?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      public_subscription_links: {
+        Row: {
+          amount: number | null
+          billing_cycle: string | null
+          created_at: string | null
+          currency: string | null
+          description: string | null
+          id: string | null
+          link_code: string | null
+          plan_name: string | null
+          redirect_url: string | null
+          status: string | null
+          thank_you_message: string | null
+          trial_days: number | null
+          user_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          billing_cycle?: string | null
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          id?: string | null
+          link_code?: string | null
+          plan_name?: string | null
+          redirect_url?: string | null
+          status?: string | null
+          thank_you_message?: string | null
+          trial_days?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          billing_cycle?: string | null
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          id?: string | null
+          link_code?: string | null
+          plan_name?: string | null
+          redirect_url?: string | null
+          status?: string | null
+          thank_you_message?: string | null
+          trial_days?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      safe_profiles: {
+        Row: {
+          avatar_url: string | null
+          business_address: string | null
+          business_name: string | null
+          country: string | null
+          created_at: string | null
+          currency: string | null
+          email: string | null
+          full_name: string | null
+          id: string | null
+          logo_url: string | null
+          plan: string | null
+          primary_color: string | null
+          secondary_color: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          business_address?: string | null
+          business_name?: string | null
+          country?: string | null
+          created_at?: string | null
+          currency?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string | null
+          logo_url?: string | null
+          plan?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          business_address?: string | null
+          business_name?: string | null
+          country?: string | null
+          created_at?: string | null
+          currency?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string | null
+          logo_url?: string | null
+          plan?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -529,6 +849,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const

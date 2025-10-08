@@ -57,7 +57,7 @@ export const ActiveLinksSection = ({
     } else if (type === 'Subscription') {
       url = `${baseUrl}/subscribe/${code}`;
     } else if (type === 'Catalogue') {
-      url = `${baseUrl}/shop/${code}`;
+      url = `${baseUrl}/catalogue/${code}`;
     }
     
     navigator.clipboard.writeText(url);

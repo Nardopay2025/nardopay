@@ -9,8 +9,8 @@ import {
   Text,
   Hr,
   Link,
-} from 'npm:@react-email/components@0.0.22'
-import * as React from 'npm:react@18.3.1'
+} from 'https://esm.sh/@react-email/components@0.0.22'
+import * as React from 'https://esm.sh/react@18.3.1'
 
 interface CustomerReceiptProps {
   customerName: string

@@ -10,6 +10,7 @@ export default function PaymentCallback() {
   const navigate = useNavigate();
   const [status, setStatus] = useState<'loading' | 'success' | 'failed'>('loading');
   const [transaction, setTransaction] = useState<any>(null);
+  const [isChecking, setIsChecking] = useState(false);
 
   useEffect(() => {
     const transactionId = searchParams.get('transaction_id');
@@ -70,6 +71,37 @@ export default function PaymentCallback() {
     checkTransaction();
   }, [searchParams]);
 
+  const handleManualCheck = async () => {
+    const transactionId = searchParams.get('transaction_id');
+    if (!transactionId || isChecking) return;
+
+    setIsChecking(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('pesapal-check-status', {
+        body: { transactionId }
+      });
+
+      if (error) throw error;
+
+      if (data.status === 'completed') {
+        setStatus('success');
+        // Reload transaction details
+        const { data: txData } = await supabase
+          .from('transactions')
+          .select('*')
+          .eq('id', transactionId)
+          .single();
+        setTransaction(txData);
+      } else if (data.status === 'failed') {
+        setStatus('failed');
+      }
+    } catch (error) {
+      console.error('Manual check failed:', error);
+    } finally {
+      setIsChecking(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md p-8">
@@ -80,6 +112,21 @@ export default function PaymentCallback() {
             <p className="text-muted-foreground">
               Please wait while we confirm your payment...
             </p>
+            <Button 
+              onClick={handleManualCheck} 
+              disabled={isChecking}
+              variant="outline"
+              className="mt-4"
+            >
+              {isChecking ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Checking Status...
+                </>
+              ) : (
+                'Check Status Now'
+              )}
+            </Button>
           </div>
         )}
 
