@@ -8,7 +8,7 @@ export type LinkType = 'payment' | 'donation' | 'catalogue' | 'subscription';
 const customerDetailsSchema = z.object({
   name: z.string().trim().min(1, 'Name is required').max(100, 'Name must be less than 100 characters'),
   email: z.string().trim().email('Invalid email address').max(255, 'Email must be less than 255 characters'),
-  phone: z.string().regex(/^\+?[1-9]\d{1,14}$/, 'Invalid phone number format').optional(),
+  phone: z.string().trim().regex(/^\+?[1-9]\d{1,14}$/, 'Invalid phone number format').optional().or(z.literal('')),
 });
 
 interface PaymentRequest {
@@ -24,6 +24,13 @@ interface PaymentRequest {
   // Optional fields based on link type
   donationAmount?: string;
   cartItems?: any[];
+  cardDetails?: {
+    cardNumber: string;
+    expiryMonth: string;
+    expiryYear: string;
+    cvv: string;
+    cardholderName?: string;
+  };
 }
 
 interface PaymentResponse {
@@ -32,40 +39,49 @@ interface PaymentResponse {
   error?: string;
 }
 
+// Paymentology supported countries (global virtual card provider)
+const PAYMENTOLOGY_COUNTRIES = [
+  'US', 'GB', 'DE', 'FR', 'IT', 'ES', 'NL', 'BE', 'AT', 'PT', 'IE', 'ZA', 
+  'NG', 'GH', 'KE', 'UG', 'TZ', 'RW', 'ZM', 'MW', 'BW', 'ZW',
+];
+
+// Pesapal supported countries (East African markets + select regions)
+const PESAPAL_COUNTRIES = [
+  'KE', 'UG', 'TZ', 'RW', 'MW', 'ZM', 'ZW', 'BW',
+];
+
 /**
  * Smart payment routing - determines which payment provider to use
- * based on payment method and merchant's country
  */
 function selectProvider(request: PaymentRequest): string {
   const { paymentMethod, merchantCountry } = request;
-
-  // East African countries supported by Pesapal
-  const pesapalCountries = ['KE', 'UG', 'TZ', 'MW', 'RW', 'ZM', 'ZW'];
-
-  // Mobile Money in East Africa → Pesapal
-  if (paymentMethod === 'mobile_money' && pesapalCountries.includes(merchantCountry)) {
+  
+  // Card payments via Paymentology (global coverage)
+  if (paymentMethod === 'card' && PAYMENTOLOGY_COUNTRIES.includes(merchantCountry)) {
+    return 'paymentology';
+  }
+  
+  // Mobile Money and Bank Transfer via Pesapal (only for supported countries)
+  if ((paymentMethod === 'mobile_money' || paymentMethod === 'bank_transfer') 
+      && PESAPAL_COUNTRIES.includes(merchantCountry)) {
     return 'pesapal';
   }
+  
+  // Unsupported combination
+  throw new Error(`COUNTRY_NOT_SUPPORTED: ${paymentMethod} payments are not available in ${merchantCountry}. Please use an alternative payment method.`);
+}
 
-  // Bank Transfer in East Africa → Pesapal
-  if (paymentMethod === 'bank_transfer' && pesapalCountries.includes(merchantCountry)) {
-    return 'pesapal';
-  }
-
-  // Cards anywhere → Stripe (when configured)
+/**
+ * Check if a payment method is supported in a given country
+ */
+export function isPaymentMethodSupported(paymentMethod: PaymentMethod, country: string): boolean {
   if (paymentMethod === 'card') {
-    // TODO: Return 'stripe' when Stripe integration is ready
-    return 'pesapal'; // Fallback to Pesapal for now
+    return PAYMENTOLOGY_COUNTRIES.includes(country);
   }
-
-  // Mobile Money in Nigeria → Paystack (future)
-  if (paymentMethod === 'mobile_money' && merchantCountry === 'NG') {
-    // TODO: Return 'paystack' when Paystack integration is ready
-    return 'pesapal'; // Fallback
+  if (paymentMethod === 'mobile_money' || paymentMethod === 'bank_transfer') {
+    return PESAPAL_COUNTRIES.includes(country);
   }
-
-  // Default fallback
-  return 'pesapal';
+  return false;
 }
 
 /**
@@ -96,6 +112,47 @@ function formatForPesapal(request: PaymentRequest): any {
 }
 
 /**
+ * Format payment data for Paymentology provider
+ */
+function formatForPaymentology(request: PaymentRequest): any {
+  const { linkCode, linkType, customerDetails, donationAmount, cartItems, cardDetails } = request;
+  
+  // Calculate total amount
+  let amount = 0;
+  let description = '';
+  
+  if (linkType === 'donation' && donationAmount) {
+    amount = parseFloat(donationAmount);
+    description = 'Donation';
+  } else if (linkType === 'catalogue' && cartItems) {
+    amount = cartItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
+    description = 'Catalogue purchase';
+  }
+  
+  if (!cardDetails) {
+    throw new Error('Card details are required for card payments');
+  }
+  
+  return {
+    amount: amount.toString(),
+    currency: 'USD', // Paymentology uses USD
+    customerName: customerDetails.name,
+    customerEmail: customerDetails.email,
+    cardNumber: cardDetails.cardNumber,
+    expiryMonth: cardDetails.expiryMonth,
+    expiryYear: cardDetails.expiryYear,
+    cvv: cardDetails.cvv,
+    reference: `${linkType}-${linkCode}-${Date.now()}`,
+    description,
+    metadata: {
+      linkType,
+      linkCode,
+      cartItems,
+    },
+  };
+}
+
+/**
  * Main payment processing function - routes to appropriate provider
  */
 export async function processPayment(request: PaymentRequest): Promise<PaymentResponse> {
@@ -123,6 +180,11 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
         edgeFunction = 'pesapal-submit-order';
         break;
 
+      case 'paymentology':
+        providerData = formatForPaymentology(request);
+        edgeFunction = 'paymentology-accept-payment';
+        break;
+
       case 'stripe':
         // TODO: Implement Stripe formatting when ready
         providerData = {}; // formatForStripe(request);
@@ -147,7 +209,18 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
 
     if (error) {
       console.error('Edge function error:', error);
-      throw error;
+      // Extract detailed error message if available
+      const errorMessage = error.message || 'Payment provider error';
+      throw new Error(errorMessage);
+    }
+
+    // Check for errors in the response data
+    if (data?.error) {
+      const detailedError = data.details 
+        ? `${data.error}: ${JSON.stringify(data.details)}`
+        : data.message || data.error;
+      console.error('Payment provider error:', detailedError);
+      throw new Error(detailedError);
     }
 
     if (!data?.redirect_url) {

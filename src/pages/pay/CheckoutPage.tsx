@@ -217,6 +217,7 @@ export default function CheckoutPage() {
           phone: paymentDetails.phoneNumber,
         },
         donationAmount: linkType === 'donate' ? donationAmount : undefined,
+        cardDetails: paymentDetails.cardDetails,
       });
 
       if (result.success && result.redirect_url) {
@@ -226,9 +227,30 @@ export default function CheckoutPage() {
       }
     } catch (error: any) {
       console.error('Payment error:', error);
+      
+      // Extract user-friendly error message
+      let errorMessage = 'Failed to process payment';
+      let errorTitle = 'Payment Failed';
+      
+      if (error.message) {
+        if (error.message.includes('COUNTRY_NOT_SUPPORTED')) {
+          errorTitle = 'Country Not Supported';
+          // Extract the country-specific message after the colon
+          errorMessage = error.message.split(':')[1]?.trim() || 'This payment method is not available in your region. Please contact support.';
+        } else if (error.message.includes('INVALID_INPUT')) {
+          errorMessage = 'Please check your payment details and try again';
+        } else if (error.message.includes('invalid_api_credentials')) {
+          errorMessage = 'Payment service temporarily unavailable. Please contact support.';
+        } else if (error.message.includes('Invalid Access Token')) {
+          errorMessage = 'Payment service configuration error. Please contact merchant.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
-        title: 'Payment Failed',
-        description: error.message || 'Failed to process payment',
+        title: errorTitle,
+        description: errorMessage,
         variant: 'destructive',
       });
       setProcessing(false);

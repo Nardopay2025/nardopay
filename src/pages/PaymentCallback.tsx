@@ -42,19 +42,13 @@ export default function PaymentCallback() {
         if (data.status === 'completed') {
           setStatus('success');
           
-          // Show thank you message if configured
+          // Redirect if configured - give user time to see success message
           const metadata = data.metadata as Record<string, any> | null;
-          const thankYouMessage = metadata?.thank_you_message;
-          if (thankYouMessage) {
-            // Could display this in a toast or on the page
-          }
-
-          // Redirect if configured
           const redirectUrl = metadata?.redirect_url;
           if (redirectUrl) {
             setTimeout(() => {
               window.location.href = redirectUrl as string;
-            }, 3000);
+            }, 5000); // Increased to 5 seconds so user can see the success message
           }
         } else if (data.status === 'failed') {
           setStatus('failed');
@@ -135,22 +129,44 @@ export default function PaymentCallback() {
             <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto" />
             <h2 className="text-2xl font-bold text-green-600">Payment Successful!</h2>
             <p className="text-muted-foreground">
-              Your payment has been processed successfully.
+              Your payment has been processed successfully. Thank you!
             </p>
             {transaction && (
-              <div className="mt-4 p-4 bg-muted rounded-lg text-left space-y-2">
-                <p className="text-sm">
-                  <span className="font-semibold">Amount:</span>{' '}
-                  {transaction.currency} {parseFloat(transaction.amount).toFixed(2)}
-                </p>
-                <p className="text-sm">
-                  <span className="font-semibold">Reference:</span>{' '}
-                  {transaction.reference}
-                </p>
-              </div>
+              <>
+                <div className="mt-4 p-4 bg-muted rounded-lg text-left space-y-2">
+                  <p className="text-sm">
+                    <span className="font-semibold">Amount:</span>{' '}
+                    {transaction.currency} {parseFloat(transaction.amount).toFixed(2)}
+                  </p>
+                  <p className="text-sm">
+                    <span className="font-semibold">Reference:</span>{' '}
+                    {transaction.reference}
+                  </p>
+                  <p className="text-sm">
+                    <span className="font-semibold">Status:</span>{' '}
+                    <span className="text-green-600 font-medium">Completed</span>
+                  </p>
+                </div>
+                
+                {/* Show custom thank you message if configured */}
+                {(transaction.metadata as any)?.thank_you_message && (
+                  <div className="mt-4 p-4 bg-primary/10 rounded-lg">
+                    <p className="text-sm text-primary font-medium">
+                      {(transaction.metadata as any).thank_you_message}
+                    </p>
+                  </div>
+                )}
+                
+                {/* Show redirect notice if configured */}
+                {(transaction.metadata as any)?.redirect_url && (
+                  <p className="text-sm text-muted-foreground mt-4">
+                    Redirecting you shortly...
+                  </p>
+                )}
+              </>
             )}
-            <Button onClick={() => navigate('/')} className="mt-6">
-              Return to Home
+            <Button onClick={() => navigate('/dashboard')} className="mt-6">
+              Go to Dashboard
             </Button>
           </div>
         )}

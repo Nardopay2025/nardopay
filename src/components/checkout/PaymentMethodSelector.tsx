@@ -1,6 +1,6 @@
 import { CreditCard, Smartphone, Building2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import { PaymentMethod } from '@/lib/paymentRouter';
+import { PaymentMethod, isPaymentMethodSupported } from '@/lib/paymentRouter';
 
 interface PaymentMethodSelectorProps {
   selectedMethod: PaymentMethod | null;
@@ -21,24 +21,21 @@ export function PaymentMethodSelector({
       icon: CreditCard,
       title: 'Credit/Debit Card',
       description: 'Visa, Mastercard, American Express',
-      supported: false, // Will be enabled when Stripe is integrated
-      comingSoon: true,
+      supported: isPaymentMethodSupported('card', merchantCountry),
     },
     {
       id: 'mobile_money' as PaymentMethod,
       icon: Smartphone,
       title: 'Mobile Money',
       description: 'M-Pesa, Airtel Money, MTN, etc.',
-      supported: ['KE', 'UG', 'TZ', 'MW', 'RW', 'ZM', 'ZW', 'NG'].includes(merchantCountry),
-      comingSoon: false,
+      supported: isPaymentMethodSupported('mobile_money', merchantCountry),
     },
     {
       id: 'bank_transfer' as PaymentMethod,
       icon: Building2,
       title: 'Bank Transfer',
       description: 'Direct bank account payment',
-      supported: ['KE', 'UG', 'TZ', 'MW', 'RW', 'ZM', 'ZW'].includes(merchantCountry),
-      comingSoon: false,
+      supported: isPaymentMethodSupported('bank_transfer', merchantCountry),
     },
   ];
 
@@ -66,14 +63,6 @@ export function PaymentMethodSelector({
                 borderColor: isSelected ? primaryColor : undefined,
               }}
             >
-              {method.comingSoon && (
-                <div className="absolute top-2 right-2">
-                  <span className="text-xs bg-muted px-2 py-1 rounded-full text-muted-foreground">
-                    Coming Soon
-                  </span>
-                </div>
-              )}
-              
               <div className="flex flex-col items-center text-center space-y-3">
                 <div
                   className="p-3 rounded-full bg-muted"
@@ -92,13 +81,12 @@ export function PaymentMethodSelector({
                 <div>
                   <h3 className="font-semibold text-base mb-1">{method.title}</h3>
                   <p className="text-xs text-muted-foreground">{method.description}</p>
+                  {!method.supported && (
+                    <p className="text-xs text-destructive italic mt-2">
+                      Not available in your region
+                    </p>
+                  )}
                 </div>
-
-                {!method.supported && !method.comingSoon && (
-                  <p className="text-xs text-muted-foreground italic">
-                    Not available in your region
-                  </p>
-                )}
               </div>
             </Card>
           );

@@ -5,9 +5,10 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { PaymentMethodSelector } from '@/components/checkout/PaymentMethodSelector';
+import { PaymentDetailsForm } from '@/components/checkout/PaymentDetailsForm';
 import { processPayment, PaymentMethod } from '@/lib/paymentRouter';
 
 export default function PaymentLinkPage() {
@@ -98,22 +99,21 @@ export default function PaymentLinkPage() {
     }
   };
 
-  const handlePayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!selectedMethod) {
+  const handlePaymentSubmit = async (paymentDetails: any) => {
+    if (!payerName || !payerEmail) {
       toast({
-        title: 'Select Payment Method',
-        description: 'Please select a payment method to continue',
+        title: 'Missing Information',
+        description: 'Please enter your name and email address',
         variant: 'destructive',
       });
       return;
     }
-
-    if (!phoneNumber) {
+    
+    // Validate phone format if provided
+    if (phoneNumber && !/^\+?[1-9]\d{1,14}$/.test(phoneNumber)) {
       toast({
-        title: 'Phone Number Required',
-        description: 'Please enter your phone number',
+        title: 'Invalid Phone Number',
+        description: 'Please enter a valid phone number with country code (e.g., +27123456789)',
         variant: 'destructive',
       });
       return;
@@ -125,13 +125,14 @@ export default function PaymentLinkPage() {
       const result = await processPayment({
         linkType: 'payment',
         linkCode: linkCode!,
-        paymentMethod: selectedMethod,
+        paymentMethod: selectedMethod!,
         merchantCountry,
         customerDetails: {
           name: payerName,
           email: payerEmail,
           phone: phoneNumber,
         },
+        cardDetails: paymentDetails.cardDetails,
       });
 
       if (result.success && result.redirect_url) {
@@ -141,9 +142,24 @@ export default function PaymentLinkPage() {
       }
     } catch (error: any) {
       console.error('Payment error:', error);
+      
+      let errorMessage = 'Failed to process payment';
+      let errorTitle = 'Payment Failed';
+      
+      if (error.message) {
+        if (error.message.includes('COUNTRY_NOT_SUPPORTED')) {
+          errorTitle = 'Country Not Supported';
+          errorMessage = error.message.split(':')[1]?.trim() || 'This payment method is not available in your region.';
+        } else if (error.message.includes('Invalid Access Token')) {
+          errorMessage = 'Payment service configuration error. Please contact merchant.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
-        title: 'Payment Failed',
-        description: error.message || 'Failed to process payment',
+        title: errorTitle,
+        description: errorMessage,
         variant: 'destructive',
       });
       setProcessing(false);
@@ -281,7 +297,7 @@ export default function PaymentLinkPage() {
           </div>
 
           {/* Customer Information */}
-          <form onSubmit={handlePayment} className="space-y-6">
+          <div className="space-y-6">
             <div className="space-y-4">
               <h3 className="font-semibold">Customer Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -310,66 +326,60 @@ export default function PaymentLinkPage() {
                   />
                 </div>
               </div>
+              <div>
+                <Label htmlFor="phone">Phone Number (Optional)</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  placeholder="+27123456789"
+                  className="bg-background"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Include country code, digits only (e.g., +27123456789)
+                </p>
+              </div>
             </div>
 
             {/* Payment Method Selection */}
-            <div className="space-y-4">
-              <h3 className="font-semibold">Payment Method</h3>
-              <PaymentMethodSelector
-                selectedMethod={selectedMethod}
-                onSelectMethod={setSelectedMethod}
-                merchantCountry={merchantCountry}
-                primaryColor={primaryColor}
-              />
-            </div>
-
-            {/* Phone Number (shown only after payment method selected) */}
-            {selectedMethod && (
-              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                <h3 className="font-semibold">Payment Details</h3>
-                <div>
-                  <Label htmlFor="phone">
-                    {selectedMethod === 'mobile_money' ? 'Mobile Money Number' : 'Phone Number'}
-                  </Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder={selectedMethod === 'mobile_money' ? '+255 XXX XXX XXX' : '+255 XXX XXX XXX'}
-                    required
-                    className="bg-background"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {selectedMethod === 'mobile_money' 
-                      ? 'Enter your M-Pesa, Airtel Money, or Tigo Pesa number'
-                      : 'Enter your phone number for verification'}
-                  </p>
-                </div>
+            {!selectedMethod && (
+              <div className="space-y-4">
+                <h3 className="font-semibold">Payment Method</h3>
+                <PaymentMethodSelector
+                  selectedMethod={selectedMethod}
+                  onSelectMethod={setSelectedMethod}
+                  merchantCountry={merchantCountry}
+                  primaryColor={primaryColor}
+                />
               </div>
             )}
 
+            {/* Payment Details Form */}
+            {selectedMethod && (
+              <div className="space-y-6">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedMethod(null)}
+                  className="mb-4"
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Change payment method
+                </Button>
 
-            <Button 
-              type="submit" 
-              className="w-full text-white" 
-              disabled={processing || !selectedMethod}
-              style={{ 
-                background: processing || !selectedMethod
-                  ? undefined 
-                  : `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` 
-              }}
-            >
-              {processing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                `Pay ${paymentLink.currency} ${parseFloat(paymentLink.amount).toFixed(2)}`
-              )}
-            </Button>
-          </form>
+                <PaymentDetailsForm
+                  paymentMethod={selectedMethod}
+                  amount={parseFloat(paymentLink.amount)}
+                  currency={paymentLink.currency}
+                  onSubmit={handlePaymentSubmit}
+                  processing={processing}
+                  primaryColor={primaryColor}
+                  secondaryColor={secondaryColor}
+                />
+              </div>
+            )}
+          </div>
 
           {/* Footer */}
           {invoiceSettings?.invoice_footer && (

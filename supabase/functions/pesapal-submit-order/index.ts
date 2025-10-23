@@ -63,12 +63,21 @@ async function getPesapalCredentials(supabaseClient: any, userId: string, countr
   }
 
   // Fallback to environment variables
-  console.log('Using fallback environment credentials');
-  return {
-    consumer_key: Deno.env.get('PESAPAL_CONSUMER_KEY'),
-    consumer_secret: Deno.env.get('PESAPAL_CONSUMER_SECRET'),
-    ipn_id: Deno.env.get('PESAPAL_IPN_ID'),
-  };
+  const envKey = Deno.env.get('PESAPAL_CONSUMER_KEY');
+  const envSecret = Deno.env.get('PESAPAL_CONSUMER_SECRET');
+  const envIpnId = Deno.env.get('PESAPAL_IPN_ID');
+  
+  if (envKey && envSecret) {
+    console.log('Using fallback environment credentials');
+    return {
+      consumer_key: envKey,
+      consumer_secret: envSecret,
+      ipn_id: envIpnId,
+    };
+  }
+
+  // No credentials found - throw helpful error
+  throw new Error(`COUNTRY_NOT_SUPPORTED: Pesapal is not currently available in ${countryCode}. Please try a different payment method or contact support.`);
 }
 
 async function getPesapalToken(credentials: { consumer_key: string; consumer_secret: string }) {
@@ -109,6 +118,7 @@ serve(async (req) => {
     );
 
     const body = await req.json();
+    console.log('Received request body:', JSON.stringify(body, null, 2));
     
     // Validate input
     const validatedData = submitOrderSchema.parse(body);
@@ -371,17 +381,19 @@ serve(async (req) => {
     );
   } catch (error: any) {
     console.error('[Internal] Error in pesapal-submit-order:', error);
+    console.error('Error stack:', error.stack);
     
     // Return generic error to client, log details server-side
     if (error instanceof z.ZodError) {
+      console.error('Validation errors:', JSON.stringify(error.errors, null, 2));
       return new Response(
-        JSON.stringify({ error: 'INVALID_INPUT', code: 'E003' }),
+        JSON.stringify({ error: 'INVALID_INPUT', code: 'E003', details: error.errors }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
     return new Response(
-      JSON.stringify({ error: 'PAYMENT_FAILED', code: 'E004' }),
+      JSON.stringify({ error: 'PAYMENT_FAILED', code: 'E004', message: error.message }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

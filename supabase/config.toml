@@ -1,5 +1,14 @@
 project_id = "mczqwqsvumfsneoknlep"
 
+[functions.pesapal-withdraw-ipn]
+verify_jwt = false
+
+[functions.paymentology-accept-payment]
+verify_jwt = false
+
+[functions.paymentology-issue-card]
+verify_jwt = true
+
 [auth]
 enabled = true
 site_url = "http://localhost:5173"
@@ -41,4 +50,10 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.manage-payment-configs]
+verify_jwt = true
+
+[functions.mtn-momo-withdraw]
+verify_jwt = true
+
+[functions.pesapal-withdraw]
 verify_jwt = true

@@ -29,6 +29,12 @@ export function PaymentDetailsForm({
   const [mobileProvider, setMobileProvider] = useState('');
   const [bankName, setBankName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
+  
+  // Card payment fields
+  const [cardNumber, setCardNumber] = useState('');
+  const [expiryDate, setExpiryDate] = useState('');
+  const [cvv, setCvv] = useState('');
+  const [cardholderName, setCardholderName] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,6 +47,15 @@ export function PaymentDetailsForm({
     } else if (paymentMethod === 'bank_transfer') {
       details.bankName = bankName;
       details.accountNumber = accountNumber;
+    } else if (paymentMethod === 'card') {
+      const [expiryMonth, expiryYear] = expiryDate.split('/');
+      details.cardDetails = {
+        cardNumber: cardNumber.replace(/\s/g, ''),
+        expiryMonth,
+        expiryYear: `20${expiryYear}`,
+        cvv,
+        cardholderName,
+      };
     }
     
     onSubmit(details);
@@ -125,9 +140,73 @@ export function PaymentDetailsForm({
       {paymentMethod === 'card' && (
         <div className="space-y-4">
           <h3 className="font-semibold">Card Details</h3>
-          <p className="text-sm text-muted-foreground">
-            Card payments coming soon via Stripe integration
-          </p>
+          
+          <div>
+            <Label htmlFor="cardNumber">Card Number</Label>
+            <Input
+              id="cardNumber"
+              type="text"
+              placeholder="1234 5678 9012 3456"
+              value={cardNumber}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\s/g, '');
+                const formatted = value.match(/.{1,4}/g)?.join(' ') || value;
+                setCardNumber(formatted);
+              }}
+              maxLength={19}
+              required
+              className="bg-background"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="expiry">Expiry Date</Label>
+              <Input
+                id="expiry"
+                type="text"
+                placeholder="MM/YY"
+                value={expiryDate}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '');
+                  const formatted = value.length >= 2 
+                    ? `${value.slice(0, 2)}/${value.slice(2, 4)}`
+                    : value;
+                  setExpiryDate(formatted);
+                }}
+                maxLength={5}
+                required
+                className="bg-background"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="cvv">CVV</Label>
+              <Input
+                id="cvv"
+                type="text"
+                placeholder="123"
+                value={cvv}
+                onChange={(e) => setCvv(e.target.value.replace(/\D/g, ''))}
+                maxLength={4}
+                required
+                className="bg-background"
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="cardholderName">Cardholder Name</Label>
+            <Input
+              id="cardholderName"
+              type="text"
+              placeholder="JOHN DOE"
+              value={cardholderName}
+              onChange={(e) => setCardholderName(e.target.value.toUpperCase())}
+              required
+              className="bg-background"
+            />
+          </div>
         </div>
       )}
 
