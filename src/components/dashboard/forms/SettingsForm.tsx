@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Upload, User, FileText, Palette, X, Settings2, CreditCard } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/contexts/AuthContext';
 import { COUNTRIES, getCountryByCode } from '@/lib/countries';
 import { UpgradePlanDialog } from '@/components/dashboard/UpgradePlanDialog';
@@ -24,8 +25,9 @@ const invoiceSchema = z.object({
   business_address: z.string().max(500, 'Address must be less than 500 characters').optional(),
   tax_id: z.string().max(50, 'Tax ID must be less than 50 characters').optional(),
   invoice_footer: z.string().max(500, 'Footer must be less than 500 characters').optional(),
-  primary_color: z.string().regex(/^#[0-9A-F]{6}$/i, 'Invalid color format'),
-  secondary_color: z.string().regex(/^#[0-9A-F]{6}$/i, 'Invalid color format'),
+  // Allow any valid CSS color string (named colors, rgb/rgba, hsl, hex, etc.)
+  primary_color: z.string().trim().min(1, 'Enter a color value'),
+  secondary_color: z.string().trim().min(1, 'Enter a color value'),
 });
 
 // Preset color palettes
@@ -89,29 +91,66 @@ export const SettingsForm = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [upgradePlanOpen, setUpgradePlanOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [profileData, setProfileData] = useState({
-    full_name: '',
-    email: '',
-    currency: 'KES',
-    country: '',
-    plan: 'free',
-    withdrawal_account_type: '',
-    mobile_provider: '',
-    mobile_number: '',
-    bank_name: '',
-    bank_account_number: '',
-    bank_account_name: '',
+  const [profileData, setProfileData] = useState(() => {
+    try {
+      const cached = localStorage.getItem('np_profile');
+      const parsed = cached ? JSON.parse(cached) : null;
+      return {
+        full_name: parsed?.full_name || '',
+        email: parsed?.email || '',
+        currency: localStorage.getItem('np_currency') || parsed?.currency || 'KES',
+        country: parsed?.country || '',
+        plan: parsed?.plan || 'free',
+        withdrawal_account_type: parsed?.withdrawal_account_type || '',
+        mobile_provider: '',
+        mobile_number: '',
+        bank_name: '',
+        bank_account_number: '',
+        bank_account_name: '',
+      };
+    } catch {
+      return {
+        full_name: '',
+        email: '',
+        currency: 'KES',
+        country: '',
+        plan: 'free',
+        withdrawal_account_type: '',
+        mobile_provider: '',
+        mobile_number: '',
+        bank_name: '',
+        bank_account_number: '',
+        bank_account_name: '',
+      };
+    }
   });
-  const [invoiceSettings, setInvoiceSettings] = useState({
-    business_name: '',
-    business_address: '',
-    tax_id: '',
-    invoice_footer: '',
-    logo_url: '',
-    primary_color: '#3B82F6',
-    secondary_color: '#1E40AF',
+  const [invoiceSettings, setInvoiceSettings] = useState(() => {
+    try {
+      const cached = localStorage.getItem('np_invoice_settings');
+      const parsed = cached ? JSON.parse(cached) : null;
+      return {
+        business_name: parsed?.business_name || '',
+        business_address: parsed?.business_address || '',
+        tax_id: parsed?.tax_id || '',
+        invoice_footer: parsed?.invoice_footer || '',
+        logo_url: parsed?.logo_url || '',
+        primary_color: parsed?.primary_color || '#3B82F6',
+        secondary_color: parsed?.secondary_color || '#1E40AF',
+      };
+    } catch {
+      return {
+        business_name: '',
+        business_address: '',
+        tax_id: '',
+        invoice_footer: '',
+        logo_url: '',
+        primary_color: '#3B82F6',
+        secondary_color: '#1E40AF',
+      };
+    }
   });
 
   useEffect(() => {
@@ -145,6 +184,21 @@ export const SettingsForm = () => {
           bank_account_number: '',
           bank_account_name: '',
         });
+        if (data.currency) {
+          try {
+            localStorage.setItem('np_currency', data.currency);
+          } catch {}
+        }
+        try {
+          localStorage.setItem('np_profile', JSON.stringify({
+            full_name: data.full_name || '',
+            email: data.email || user?.email || '',
+            currency: data.currency || 'KES',
+            country: data.country || '',
+            plan: data.plan || 'free',
+            withdrawal_account_type: data.withdrawal_account_type || '',
+          }));
+        } catch {}
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -163,7 +217,7 @@ export const SettingsForm = () => {
         if (error) throw error;
 
         if (data) {
-          setInvoiceSettings({
+          const next = {
             business_name: data.business_name || '',
             business_address: data.business_address || '',
             tax_id: data.tax_id || '',
@@ -171,7 +225,11 @@ export const SettingsForm = () => {
             logo_url: data.logo_url || '',
             primary_color: data.primary_color || '#3B82F6',
             secondary_color: data.secondary_color || '#1E40AF',
-          });
+          };
+          setInvoiceSettings(next);
+          try {
+            localStorage.setItem('np_invoice_settings', JSON.stringify(next));
+          } catch {}
         }
       }
     } catch (error) {
@@ -204,39 +262,74 @@ export const SettingsForm = () => {
     }
 
     setUploadingLogo(true);
+    setUploadProgress(5);
 
     try {
       // Upload to Supabase Storage
-      const fileExt = file.name.split('.').pop();
+      const fileExt = (file.name.split('.').pop() || 'png').toLowerCase();
       const fileName = `${user.id}/logo-${Date.now()}.${fileExt}`;
+      // Start a gentle simulated progress while we await network
+      let progressInterval: number | undefined;
+      let timeoutHandle: number | undefined;
+      try {
+        progressInterval = window.setInterval(() => {
+          setUploadProgress((p) => (p < 95 ? p + 2 : p));
+        }, 120);
+        // Hard timeout guard (60s)
+        timeoutHandle = window.setTimeout(() => {
+          try { if (progressInterval) window.clearInterval(progressInterval); } catch {}
+          setUploadingLogo(false);
+          setUploadProgress(0);
+          toast({
+            title: 'Upload timeout',
+            description: 'Logo upload is taking too long. Please check your internet or try a smaller image (≤5MB).',
+            variant: 'destructive',
+          });
+        }, 60000);
+      } catch {}
       
       const { error: uploadError } = await supabase.storage
         .from('business-logos')
-        .upload(fileName, file, { upsert: true });
+        .upload(fileName, file, {
+          upsert: true,
+          contentType: file.type || `image/${fileExt}`,
+          cacheControl: '3600',
+        });
 
       if (uploadError) throw uploadError;
+      setUploadProgress(98);
 
       // Get public URL
-      const { data: { publicUrl } } = supabase.storage
+      const { data: publicUrlData } = supabase.storage
         .from('business-logos')
         .getPublicUrl(fileName);
+      const publicUrl = publicUrlData.publicUrl;
+      setUploadProgress(99);
 
       // Extract colors from the image
       const img = new Image();
+      // Needed for canvas color extraction from a cross-origin image
       img.crossOrigin = 'anonymous';
       img.onload = async () => {
-        const colors = await extractColorsFromImage(img);
-        setInvoiceSettings(prev => ({
-          ...prev,
-          logo_url: publicUrl,
-          primary_color: colors[0],
-          secondary_color: colors[1],
-        }));
-        
-        toast({
-          title: 'Success!',
-          description: 'Logo uploaded and colors extracted',
-        });
+        try {
+          const colors = await extractColorsFromImage(img);
+          const [c1, c2] = colors.length === 2 ? colors : [invoiceSettings.primary_color, invoiceSettings.secondary_color];
+          setInvoiceSettings(prev => ({
+            ...prev,
+            logo_url: publicUrl,
+            primary_color: c1,
+            secondary_color: c2,
+          }));
+          setUploadProgress(100);
+          toast({ title: 'Success!', description: 'Logo uploaded and colors extracted' });
+        } catch (ex) {
+          setInvoiceSettings(prev => ({ ...prev, logo_url: publicUrl }));
+          setUploadProgress(100);
+          toast({ title: 'Logo uploaded', description: 'Color extraction failed, using your current colors.' });
+        } finally {
+          try { if (progressInterval) window.clearInterval(progressInterval); } catch {}
+          try { if (timeoutHandle) window.clearTimeout(timeoutHandle); } catch {}
+        }
       };
       img.src = publicUrl;
     } catch (error: any) {
@@ -246,7 +339,13 @@ export const SettingsForm = () => {
         variant: 'destructive',
       });
     } finally {
-      setUploadingLogo(false);
+      // Give a tiny delay to let users see 100%
+      setTimeout(() => {
+        setUploadingLogo(false);
+        setUploadProgress(0);
+      }, 500);
+      try { if (progressInterval) window.clearInterval(progressInterval); } catch {}
+      try { if (timeoutHandle) window.clearTimeout(timeoutHandle); } catch {}
     }
   };
 
@@ -632,171 +731,243 @@ export const SettingsForm = () => {
         <TabsContent value="branding">
           <Card className="p-6">
             <form onSubmit={handleInvoiceSettingsUpdate} className="space-y-6">
-              {/* Logo Upload */}
-              <div>
-                <Label htmlFor="logo">Business Logo</Label>
-                <div className="mt-2 space-y-4">
-                  {/* Logo Preview or Initials */}
-                  <div className="flex items-center gap-4">
-                    {invoiceSettings.logo_url ? (
-                      <div className="relative">
-                        <img
-                          src={invoiceSettings.logo_url}
-                          alt="Business Logo"
-                          className="h-20 w-20 object-contain border border-border rounded-lg p-2"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleRemoveLogo}
-                          className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 hover:bg-destructive/90"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div
-                        className="h-20 w-20 rounded-lg flex items-center justify-center text-white font-bold text-2xl"
-                        style={{ backgroundColor: invoiceSettings.primary_color }}
-                      >
-                        {getInitials()}
-                      </div>
-                    )}
-                    
-                    <div className="flex-1">
-                      <input
-                        ref={fileInputRef}
-                        id="logo"
-                        type="file"
-                        accept="image/*"
-                        onChange={handleLogoUpload}
-                        className="hidden"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploadingLogo}
-                      >
-                        {uploadingLogo ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Uploading...
-                          </>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* LEFT: Controls */}
+                <div className="space-y-6">
+                  {/* Logo Upload */}
+                  <div>
+                    <Label htmlFor="logo">Business Logo</Label>
+                    <div className="mt-2 space-y-4">
+                      {/* Logo Preview or Initials */}
+                      <div className="flex items-center gap-4">
+                        {invoiceSettings.logo_url ? (
+                          <div className="relative">
+                            <img
+                              src={invoiceSettings.logo_url}
+                              alt="Business Logo"
+                              className="h-20 w-20 object-contain border border-border rounded-lg p-2"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleRemoveLogo}
+                              className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 hover:bg-destructive/90"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
                         ) : (
-                          <>
-                            <Upload className="mr-2 h-4 w-4" />
-                            {invoiceSettings.logo_url ? 'Change Logo' : 'Upload Logo'}
-                          </>
+                          <div
+                            className="h-20 w-20 rounded-lg flex items-center justify-center text-white font-bold text-2xl"
+                            style={{ backgroundColor: invoiceSettings.primary_color }}
+                          >
+                            {getInitials()}
+                          </div>
                         )}
-                      </Button>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Max size: 5MB. Colors will be auto-extracted.
+                        
+                        <div className="flex-1">
+                          <input
+                            ref={fileInputRef}
+                            id="logo"
+                            type="file"
+                            accept="image/*"
+                            onChange={handleLogoUpload}
+                            className="hidden"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={uploadingLogo}
+                          >
+                            {uploadingLogo ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Uploading...
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="mr-2 h-4 w-4" />
+                                {invoiceSettings.logo_url ? 'Change Logo' : 'Upload Logo'}
+                              </>
+                            )}
+                          </Button>
+                      {uploadingLogo && (
+                        <div className="mt-3 space-y-2">
+                          <Progress value={uploadProgress} />
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>Uploading logo</span>
+                            <span>{Math.round(uploadProgress)}%</span>
+                          </div>
+                        </div>
+                      )}
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Max size: 5MB. Colors will be auto-extracted.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Color Presets (compact) */}
+                  <div className="space-y-3">
+                    <h3 className="text-base font-semibold text-foreground">Color Presets</h3>
+                    <div className="grid grid-cols-3 gap-2">
+                      {COLOR_PRESETS.map((preset) => (
+                        <button
+                          key={preset.name}
+                          type="button"
+                          onClick={() => applyColorPreset(preset)}
+                          className="p-2 border border-border rounded-md hover:border-primary transition-colors text-left"
+                        >
+                          <div className="flex gap-1 mb-1 items-center">
+                            <div
+                              className="h-6 w-6 rounded"
+                              style={{ backgroundColor: preset.primary }}
+                            />
+                            <div
+                              className="h-6 w-6 rounded"
+                              style={{ backgroundColor: preset.secondary }}
+                            />
+                          </div>
+                          <p className="text-xs font-medium text-foreground truncate">{preset.name}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Color Settings */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-foreground">Custom Colors</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Override auto-extracted colors or choose your own
+                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="primary_color">Primary Color</Label>
+                        <Input
+                          id="primary_color"
+                          type="text"
+                          value={invoiceSettings.primary_color}
+                          onChange={(e) => setInvoiceSettings({ ...invoiceSettings, primary_color: e.target.value })}
+                          placeholder="e.g., orange or rgb(249,115,22) or #f97316"
+                          className="mt-2"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="secondary_color">Secondary Color</Label>
+                        <Input
+                          id="secondary_color"
+                          type="text"
+                          value={invoiceSettings.secondary_color}
+                          onChange={(e) => setInvoiceSettings({ ...invoiceSettings, secondary_color: e.target.value })}
+                          placeholder="e.g., teal or hsl(222,47%,11%) or #1e40af"
+                          className="mt-2"
+                        />
+                      </div>
+                </div>
+
+                  <Button type="submit" disabled={loading}>
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Save Branding Settings
+                  </Button>
+                </div>
+
+                </div>
+
+                {/* RIGHT: Live Payment Page Preview (same layout as hero payment page) */}
+                <div className="rounded-xl overflow-hidden border border-border bg-card/80 backdrop-blur-sm">
+                  {/* Header with brand gradient */}
+                  <div
+                    className="p-4 text-white"
+                    style={{ background: `linear-gradient(135deg, ${invoiceSettings.primary_color}, ${invoiceSettings.secondary_color})` }}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        {invoiceSettings.logo_url ? (
+                          <img
+                            src={invoiceSettings.logo_url}
+                            alt={invoiceSettings.business_name || 'Business'}
+                            className="h-8 mb-2 object-contain"
+                          />
+                        ) : (
+                          <h3 className="text-lg font-bold mb-1">{invoiceSettings.business_name || 'Your Business'}</h3>
+                        )}
+                        <p className="text-white/80 text-[10px]">123 Business Street, City</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-white/80 text-[10px]">INVOICE</p>
+                        <p className="text-base font-bold">#AB12CD34</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Two column content */}
+                  <div className="p-4">
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      {/* Left: Image/description placeholder */}
+                      <div className="space-y-4">
+                        <div className="rounded-xl overflow-hidden bg-muted/40 border border-border min-h-[160px] flex items-center justify-center">
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-background">
+                            <span className="text-muted-foreground text-xs">Product image</span>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="h-4 w-1/2 bg-muted rounded" />
+                          <div className="h-3 w-2/3 bg-muted rounded" />
+                        </div>
+                      </div>
+
+                      {/* Right: Order summary and client fields (disabled) */}
+                      <div className="space-y-4">
+                        <div className="rounded-xl bg-foreground/5 dark:bg-white/5 p-4 border border-border">
+                          <div className="text-foreground font-semibold mb-2">Order Summary</div>
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <div className="h-3 w-40 bg-muted rounded mb-1" />
+                              <div className="h-3 w-48 bg-muted rounded" />
+                            </div>
+                            <div className="h-4 w-20 bg-muted rounded" />
+                          </div>
+                          <div className="flex items-center justify-between pt-2 mt-2 border-t border-border">
+                            <span className="text-muted-foreground">Total</span>
+                            <span className="h-4 w-20 bg-muted rounded" />
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <div className="h-9 bg-muted rounded" />
+                            <div className="h-9 bg-muted rounded" />
+                          </div>
+                          <div className="h-9 bg-muted rounded" />
+                          <Button
+                            type="button"
+                            disabled
+                            className="w-full text-white border-0"
+                            style={{
+                              background: `linear-gradient(135deg, ${invoiceSettings.primary_color}, ${invoiceSettings.secondary_color})`,
+                              opacity: 0.7,
+                            }}
+                          >
+                            Pay KES 1,250.00
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="px-4 pb-4">
+                    <div className="text-center">
+                      <p className="text-xs text-muted-foreground">
+                        Secured by NardoPay • Your payment information is encrypted
                       </p>
                     </div>
                   </div>
                 </div>
               </div>
-
-              {/* Color Presets */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-foreground">Color Presets</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {COLOR_PRESETS.map((preset) => (
-                    <button
-                      key={preset.name}
-                      type="button"
-                      onClick={() => applyColorPreset(preset)}
-                      className="p-3 border border-border rounded-lg hover:border-primary transition-colors text-left"
-                    >
-                      <div className="flex gap-2 mb-2">
-                        <div
-                          className="h-8 w-8 rounded"
-                          style={{ backgroundColor: preset.primary }}
-                        />
-                        <div
-                          className="h-8 w-8 rounded"
-                          style={{ backgroundColor: preset.secondary }}
-                        />
-                      </div>
-                      <p className="text-sm font-medium text-foreground">{preset.name}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Color Settings */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-foreground">Custom Colors</h3>
-                <p className="text-sm text-muted-foreground">
-                  Override auto-extracted colors or choose your own
-                </p>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="primary_color">Primary Color</Label>
-                    <div className="flex gap-3 mt-2">
-                      <Input
-                        id="primary_color"
-                        type="color"
-                        value={invoiceSettings.primary_color}
-                        onChange={(e) => setInvoiceSettings({ ...invoiceSettings, primary_color: e.target.value })}
-                        className="w-20 h-10 cursor-pointer"
-                      />
-                      <Input
-                        type="text"
-                        value={invoiceSettings.primary_color}
-                        onChange={(e) => setInvoiceSettings({ ...invoiceSettings, primary_color: e.target.value })}
-                        placeholder="#3B82F6"
-                        className="flex-1"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="secondary_color">Secondary Color</Label>
-                    <div className="flex gap-3 mt-2">
-                      <Input
-                        id="secondary_color"
-                        type="color"
-                        value={invoiceSettings.secondary_color}
-                        onChange={(e) => setInvoiceSettings({ ...invoiceSettings, secondary_color: e.target.value })}
-                        className="w-20 h-10 cursor-pointer"
-                      />
-                      <Input
-                        type="text"
-                        value={invoiceSettings.secondary_color}
-                        onChange={(e) => setInvoiceSettings({ ...invoiceSettings, secondary_color: e.target.value })}
-                        placeholder="#1E40AF"
-                        className="flex-1"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Color Preview */}
-                <div className="p-6 border border-border rounded-lg space-y-3">
-                  <p className="text-sm font-medium text-foreground">Preview</p>
-                  <div className="flex gap-3">
-                    <div
-                      className="flex-1 h-20 rounded-lg flex items-center justify-center text-white font-medium"
-                      style={{ backgroundColor: invoiceSettings.primary_color }}
-                    >
-                      Primary
-                    </div>
-                    <div
-                      className="flex-1 h-20 rounded-lg flex items-center justify-center text-white font-medium"
-                      style={{ backgroundColor: invoiceSettings.secondary_color }}
-                    >
-                      Secondary
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <Button type="submit" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Branding Settings
-              </Button>
             </form>
           </Card>
         </TabsContent>

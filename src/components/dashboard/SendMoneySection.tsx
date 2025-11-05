@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,10 @@ export const SendMoneySection = () => {
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const [loadingRate, setLoadingRate] = useState(false);
+  const quickAmounts = [200, 500, 1000];
+  const [showNardoEmail, setShowNardoEmail] = useState(false);
+  const rateCacheRef = useRef<Record<string, number>>({});
+  const debounceTimerRef = useRef<any>(null);
 
   useEffect(() => {
     if (user) {
@@ -33,7 +37,7 @@ export const SendMoneySection = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select('country, currency')
         .eq('id', user?.id)
         .single();
 
@@ -47,11 +51,22 @@ export const SendMoneySection = () => {
   };
 
   useEffect(() => {
-    if (recipientCountry && profile?.currency) {
-      fetchExchangeRate();
-    } else {
+    if (!recipientCountry || !profile?.currency) {
       setExchangeRate(null);
+      return;
     }
+    // Debounce exchange rate fetch to avoid rapid calls while user is selecting
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      fetchExchangeRate();
+    }, 300);
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
   }, [recipientCountry, profile?.currency]);
 
   const fetchExchangeRate = async () => {
@@ -68,6 +83,13 @@ export const SendMoneySection = () => {
       return;
     }
 
+    // Use in-memory cache for the currency pair
+    const cacheKey = `${profile.currency}-${recipientCurrency}`;
+    if (rateCacheRef.current[cacheKey]) {
+      setExchangeRate(rateCacheRef.current[cacheKey]);
+      return;
+    }
+
     setLoadingRate(true);
     try {
       const { data, error } = await supabase.functions.invoke('get-exchange-rate', {
@@ -80,6 +102,7 @@ export const SendMoneySection = () => {
       if (error) throw error;
 
       if (data?.rate) {
+        rateCacheRef.current[cacheKey] = data.rate;
         setExchangeRate(data.rate);
       }
     } catch (error) {
@@ -133,10 +156,13 @@ export const SendMoneySection = () => {
   const recipientCountryObj = getCountryByCode(recipientCountry);
   const recipientCurrency = recipientCountryObj?.currency || 'USD';
   
-  const transferFeePercent = 5;
+  // Pricing model (simple, Remitly-like presentation)
+  const transferFeePercent = 0; // percent fee hidden; we'll show a flat fee and discount below
+  const flatFee = 1.99; // in sender currency
+  const promoDiscount = 1.99; // equal to fee for "Special rate" promo
   const amountNum = parseFloat(amount) || 0;
-  const feeAmount = amountNum * (transferFeePercent / 100);
-  const amountAfterFee = amountNum - feeAmount;
+  const percentFeeAmount = amountNum * (transferFeePercent / 100);
+  const amountAfterFee = amountNum - percentFeeAmount;
   
   // Calculate recipient amount with exchange rate
   const recipientReceives = exchangeRate 
@@ -187,148 +213,133 @@ export const SendMoneySection = () => {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-foreground">Send Money</h2>
-        <p className="text-muted-foreground mt-1">
-          Transfer funds to mobile money accounts
-        </p>
+        <p className="text-muted-foreground mt-1">Fast transfers to mobile money</p>
       </div>
 
-      <Card className="p-6">
-        <form onSubmit={handleSendMoney} className="space-y-6">
-          {/* Sender Info */}
-          <div className="p-4 bg-muted rounded-lg space-y-2">
-            <p className="text-sm font-medium">Sending from</p>
-            <p className="text-sm text-muted-foreground">
-              {getCountryByCode(profile.country)?.name} ({profile.currency})
-            </p>
-          </div>
-
-          {/* Amount Input */}
-          <div>
-            <Label htmlFor="amount">Amount to Send</Label>
-            <Input
-              id="amount"
-              type="number"
-              step="0.01"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0.00"
-              required
-              className="text-lg"
-            />
-            <p className="text-sm text-muted-foreground mt-1">
-              Available balance: {profile.currency} 0.00
-            </p>
-          </div>
-
-          {/* Recipient Country */}
-          <div>
-            <Label htmlFor="recipient_country">Recipient Country</Label>
-            <Select value={recipientCountry} onValueChange={setRecipientCountry}>
-              <SelectTrigger className="mt-2">
-                <SelectValue placeholder="Select country" />
-              </SelectTrigger>
-              <SelectContent>
-                {COUNTRIES.filter(c => c.mobileProviders.length > 0).map((country) => (
-                  <SelectItem key={country.code} value={country.code}>
-                    <span className="flex items-center gap-2">
-                      <span>{country.flag}</span>
-                      <span>{country.name} ({country.currency})</span>
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Recipient Name */}
-          <div>
-            <Label htmlFor="recipient_name">Recipient Name</Label>
-            <Input
-              id="recipient_name"
-              type="text"
-              value={recipientName}
-              onChange={(e) => setRecipientName(e.target.value)}
-              placeholder="Full name"
-              required
-            />
-          </div>
-
-          {/* Recipient Mobile Number */}
-          <div>
-            <Label htmlFor="recipient_mobile">Recipient Mobile Number</Label>
-            <Input
-              id="recipient_mobile"
-              type="tel"
-              value={recipientMobile}
-              onChange={(e) => setRecipientMobile(e.target.value)}
-              placeholder="e.g., +254712345678"
-              required
-            />
-            <p className="text-sm text-muted-foreground mt-1">
-              Include country code
-            </p>
-          </div>
-
-          {/* Transfer Summary */}
-          {amountNum > 0 && recipientCountry && (
-            <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">You send:</span>
-                <span className="font-medium">{profile.currency} {amountNum.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Transfer fee ({transferFeePercent}%):</span>
-                <span className="font-medium text-red-600 dark:text-red-400">
-                  -{profile.currency} {feeAmount.toFixed(2)}
-                </span>
-              </div>
-              {profile.currency !== recipientCurrency && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Exchange rate:</span>
-                  {loadingRate ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : exchangeRate ? (
-                    <span className="font-medium">
-                      1 {profile.currency} = {exchangeRate.toFixed(4)} {recipientCurrency}
-                    </span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">Fetching...</span>
-                  )}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left panel: Send directly to Nardo, borderless and centered; email shown after button press */}
+        <div className="lg:order-1 flex items-center justify-center">
+          <div className="w-full max-w-md text-center">
+            <h3 className="text-xl font-semibold text-foreground mb-2">Send directly to Nardo</h3>
+            <p className="text-sm text-muted-foreground mb-4">Send funds to a Nardopay account.</p>
+            {!showNardoEmail ? (
+              <Button className="mx-auto" onClick={() => setShowNardoEmail(true)}>Send to email</Button>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex flex-col items-center">
+                  <Label htmlFor="nardo_email" className="mb-1">Recipient email</Label>
+                  <Input id="nardo_email" type="email" placeholder="name@example.com" className="h-9 text-sm w-64 text-center" />
                 </div>
-              )}
-              <div className="pt-2 border-t border-blue-200 dark:border-blue-800">
-                <div className="flex justify-between">
-                  <span className="font-semibold">Recipient receives:</span>
-                  {loadingRate && profile.currency !== recipientCurrency ? (
-                    <Loader2 className="h-5 w-5 animate-spin text-green-600 dark:text-green-400" />
-                  ) : (
-                    <span className="font-bold text-lg text-green-600 dark:text-green-400">
-                      {recipientCurrency} {recipientReceives.toFixed(2)}
+                <Button className="h-9 text-sm px-4 mx-auto block w-fit">Continue</Button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right panel: Main transfer form, aligned right and compact to avoid scroll */}
+        <Card className="p-4 lg:p-5 lg:order-2 lg:ml-auto lg:max-w-xl w-full">
+          <form onSubmit={handleSendMoney} className="space-y-4">
+          {/* Top inputs like Remitly: You send / They receive */}
+          <div className="grid gap-4">
+            {/* You send */}
+            <div className="space-y-2">
+              <Label>You send</Label>
+              <div className="flex items-stretch gap-3">
+                <div className="flex-1">
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="100.00"
+                    className="h-10 text-base"
+                  />
+                </div>
+                <div className="w-40">
+                  <Button type="button" variant="outline" className="w-full h-10 justify-between text-sm">
+                    <span className="flex items-center gap-2">
+                      <span className="text-xl">{getCountryByCode(profile.country)?.flag}</span>
+                      <span className="font-medium">{profile.currency}</span>
                     </span>
-                  )}
+                  </Button>
+                </div>
+              </div>
+              {/* Quick amounts */}
+              <div className="flex flex-wrap gap-2 pt-2">
+                {quickAmounts.map((qa) => (
+                  <Button key={qa} type="button" variant="secondary" onClick={() => setAmount(String(qa))} className="rounded-full shadow-sm h-8 text-xs px-3">
+                    {profile.currency} {qa.toLocaleString()}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* They receive */}
+            <div className="space-y-2">
+              <Label>They receive</Label>
+              <div className="flex items-stretch gap-3">
+                <div className="flex-1">
+                  <Input
+                    readOnly
+                    value={recipientReceives > 0 ? recipientReceives.toLocaleString(undefined, { maximumFractionDigits: 2 }) : ''}
+                    placeholder={loadingRate ? 'Fetching rate…' : '0.00'}
+                    className="h-10 text-base bg-muted/40"
+                  />
+                </div>
+                <div className="w-52">
+                  <Select value={recipientCountry} onValueChange={setRecipientCountry}>
+                    <SelectTrigger className="h-10 text-sm">
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COUNTRIES.filter(c => c.mobileProviders.length > 0).map((country) => (
+                        <SelectItem key={country.code} value={country.code}>
+                          <span className="flex items-center gap-2">
+                            <span className="text-lg">{country.flag}</span>
+                            <span className="font-medium">{country.currency}</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>
-          )}
+          </div>
 
-          <Button 
-            type="submit" 
-            disabled={loading || !amount || amountNum <= 0 || !recipientCountry || !recipientName || !recipientMobile} 
-            className="w-full"
+          {/* Special rate + summary */}
+          <div className="space-y-3">
+            {profile.currency !== recipientCurrency && recipientCountry && (
+              <div className="text-xs">
+                <span className="text-purple-700 dark:text-purple-300 font-semibold">Special rate</span>
+                <span className="ml-2">1 {profile.currency} = {loadingRate ? '…' : exchangeRate ? exchangeRate.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—'} {recipientCurrency}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Recipient details (compact) */}
+          <div className="grid gap-2">
+            <div>
+              <Label htmlFor="recipient_name">Recipient name</Label>
+              <Input id="recipient_name" value={recipientName} onChange={(e) => setRecipientName(e.target.value)} placeholder="Full name" className="h-10 text-sm" />
+            </div>
+            <div>
+              <Label htmlFor="recipient_mobile">Recipient mobile number</Label>
+              <Input id="recipient_mobile" type="tel" value={recipientMobile} onChange={(e) => setRecipientMobile(e.target.value)} placeholder="e.g., +2507…" className="h-10 text-sm" />
+            </div>
+          </div>
+
+          <Button
+            type="submit"
+            disabled={loading || !amount || amountNum <= 0 || !recipientCountry || !recipientName || !recipientMobile}
+            className="w-full h-10 text-sm rounded-full"
           >
-            {loading ? 'Processing...' : 'Send Money'}
+            {loading ? 'Processing…' : 'Send'}
           </Button>
         </form>
-      </Card>
-
-      <Card className="p-6 bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800">
-        <h3 className="font-semibold text-foreground mb-2">Transfer Information</h3>
-        <ul className="text-sm text-muted-foreground space-y-1">
-          <li>• Transfers are processed instantly to mobile money accounts</li>
-          <li>• A {transferFeePercent}% fee applies to all transfers</li>
-          <li>• Make sure the recipient's mobile number is correct</li>
-        </ul>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 };

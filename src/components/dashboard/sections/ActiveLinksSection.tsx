@@ -4,6 +4,13 @@ import { Copy, ExternalLink, MoreVertical, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -38,6 +45,9 @@ export const ActiveLinksSection = ({
   const { toast } = useToast();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [linkToDelete, setLinkToDelete] = useState<{ id: string; type: string; name: string } | null>(null);
+  const [openLinkId, setOpenLinkId] = useState<string | null>(null);
+  const [viewAllOpen, setViewAllOpen] = useState(false);
+  const [selectedType, setSelectedType] = useState<'All' | 'Payment' | 'Donation' | 'Subscription' | 'Catalogue'>('All');
   
   const allLinks = [
     ...paymentLinks.map(l => ({ ...l, type: 'Payment' })),
@@ -114,7 +124,7 @@ export const ActiveLinksSection = ({
 
   if (allLinks.length === 0) {
     return (
-      <Card className="p-6">
+      <Card className="p-6 h-full min-h-[320px]">
         <h3 className="text-lg font-semibold text-foreground mb-4">Active Links</h3>
         <div className="text-center py-8 text-muted-foreground">
           <p>No active links yet</p>
@@ -125,59 +135,104 @@ export const ActiveLinksSection = ({
   }
 
   return (
-    <Card className="p-6">
+    <Card className="p-6 h-full min-h-[320px]">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold text-foreground">Active Links</h3>
-        <Badge variant="secondary">{allLinks.length} total</Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary">{allLinks.length} total</Badge>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              if (openLinkId) {
+                const current = allLinks.find(l => l.id === openLinkId);
+                setSelectedType((current?.type as any) || 'All');
+              } else {
+                setSelectedType('All');
+              }
+              setViewAllOpen(true);
+            }}
+          >
+            View All
+          </Button>
+        </div>
       </div>
       
       <div className="space-y-3">
-        {allLinks.slice(0, 5).map((link) => (
-          <div
-            key={link.id}
-            className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-accent/50 transition-colors"
-          >
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <Badge variant="outline" className="text-xs">
-                  {link.type}
-                </Badge>
-                <span className="font-medium text-foreground truncate">
-                  {link.product_name || link.title || link.plan_name || link.name}
-                </span>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {link.amount ? `${link.currency} ${link.amount}` : link.goal_amount ? `Goal: ${link.currency} ${link.goal_amount}` : 'Multiple items'}
-              </p>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => copyLink(link.link_code, link.type)}
+        {allLinks.slice(0, 3).map((link) => {
+          const isOpen = openLinkId === link.id;
+          return (
+            <div key={link.id} className="border border-border rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setOpenLinkId(isOpen ? null : link.id)}
+                className="w-full flex items-center justify-between p-4 hover:bg-accent/50 transition-colors text-left"
               >
-                <Copy className="h-4 w-4" />
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="sm" variant="ghost">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    className="text-destructive focus:text-destructive"
-                    onClick={() => handleDeleteClick(link)}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Badge variant="outline" className="text-xs">
+                      {link.type}
+                    </Badge>
+                    <span className="font-medium text-foreground truncate">
+                      {link.product_name || link.title || link.plan_name || link.name}
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {link.amount ? `${link.currency} ${link.amount}` : link.goal_amount ? `Goal: ${link.currency} ${link.goal_amount}` : 'Multiple items'}
+                  </p>
+                </div>
+                <span className="ml-4 text-xs text-muted-foreground">{isOpen ? 'Hide' : 'Preview'}</span>
+              </button>
+
+              {isOpen && (
+                <div className="px-4 pb-4">
+                  <div className="mt-2 rounded-md bg-muted/40 p-3 text-sm">
+                    <div className="flex flex-wrap gap-x-6 gap-y-2">
+                      {link.description && (
+                        <div className="min-w-[200px]"><span className="text-muted-foreground">Description:</span> {link.description}</div>
+                      )}
+                      {link.link_code && (
+                        <div className="min-w-[200px]"><span className="text-muted-foreground">Code:</span> {link.link_code}</div>
+                      )}
+                      {link.created_at && (
+                        <div className="min-w-[200px]"><span className="text-muted-foreground">Created:</span> {new Date(link.created_at).toLocaleDateString()}</div>
+                      )}
+                      {link.status && (
+                        <div className="min-w-[200px]"><span className="text-muted-foreground">Status:</span> {link.status}</div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="default"
+                      onClick={() => copyLink(link.link_code, link.type)}
+                    >
+                      <Copy className="h-4 w-4 mr-1" /> Copy Link
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="sm" variant="outline">
+                          <MoreVertical className="h-4 w-4 mr-1" /> More
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => handleDeleteClick(link)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
@@ -196,6 +251,56 @@ export const ActiveLinksSection = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={viewAllOpen} onOpenChange={setViewAllOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-card text-foreground border border-border">
+          <DialogHeader>
+            <DialogTitle>All Active Links</DialogTitle>
+            <DialogDescription>Manage all your active links in one place</DialogDescription>
+          </DialogHeader>
+          <div className="mb-4 flex flex-wrap gap-2">
+            {(['All','Payment','Donation','Subscription','Catalogue'] as const).map(t => (
+              <Button
+                key={t}
+                size="sm"
+                variant={selectedType === t ? 'default' : 'outline'}
+                onClick={() => setSelectedType(t)}
+              >
+                {t}
+              </Button>
+            ))}
+          </div>
+          <div className="space-y-3">
+            {allLinks
+              .filter(l => selectedType === 'All' ? true : l.type === selectedType)
+              .map((link) => (
+              <div key={link.id} className="border border-border rounded-lg overflow-hidden">
+                <div className="w-full flex items-center justify-between p-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge variant="outline" className="text-xs">{link.type}</Badge>
+                      <span className="font-medium text-foreground truncate">
+                        {link.product_name || link.title || link.plan_name || link.name}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {link.amount ? `${link.currency} ${link.amount}` : link.goal_amount ? `Goal: ${link.currency} ${link.goal_amount}` : 'Multiple items'}
+                    </p>
+                  </div>
+                  <div className="ml-4 flex items-center gap-2">
+                    <Button size="sm" variant="outline" onClick={() => copyLink(link.link_code, link.type)}>
+                      <Copy className="h-4 w-4 mr-1" /> Copy
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setViewAllOpen(false)}>
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };

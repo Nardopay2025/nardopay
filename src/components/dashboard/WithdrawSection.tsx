@@ -89,8 +89,12 @@ export const WithdrawSection = () => {
   const withdrawalFeePercent = profile?.plan === 'business' ? 1 : profile?.plan === 'professional' ? 2 : 5;
   const amountNum = parseFloat(amount) || 0;
   const feeAmount = amountNum * (withdrawalFeePercent / 100);
-  const totalRequired = amountNum + feeAmount;
-  const youReceive = amountNum;
+  const youReceive = Math.max(amountNum - feeAmount, 0);
+  const provider = selectWithdrawalProvider({
+    country: profile.country,
+    accountType: profile.withdrawal_account_type as WithdrawalAccountType,
+  });
+  const estimatedTime = getProcessingTime(provider, profile.withdrawal_account_type as WithdrawalAccountType);
 
   const handleWithdraw = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,11 +105,9 @@ export const WithdrawSection = () => {
         throw new Error('Please enter a valid amount');
       }
 
-      // Check sufficient balance including fee
-      const totalRequired = amountNum + feeAmount;
-
-      if (Number(profile.balance) < totalRequired) {
-        throw new Error(`Insufficient balance. You need ${profile.currency} ${totalRequired.toFixed(2)} (including ${withdrawalFeePercent}% fee) but have ${profile.currency} ${Number(profile.balance).toFixed(2)}`);
+      // Check sufficient balance
+      if (Number(profile.balance) < amountNum) {
+        throw new Error(`Insufficient balance. You have ${profile.currency} ${Number(profile.balance).toFixed(2)}`);
       }
 
       // Get current session token
@@ -143,7 +145,7 @@ export const WithdrawSection = () => {
 
       toast({
         title: 'Withdrawal Initiated',
-        description: data.message || `Processing withdrawal of ${profile.currency} ${amountNum.toFixed(2)} via ${providerName}. You will receive ${profile.currency} ${youReceive.toFixed(2)}.`,
+        description: data.message || `Processing ${profile.currency} ${amountNum.toFixed(2)} via ${providerName}. You will receive ${profile.currency} ${youReceive.toFixed(2)} after fees. Estimated time: ${estimatedTime}.`,
       });
 
       setAmount('');
@@ -161,18 +163,7 @@ export const WithdrawSection = () => {
     }
   };
 
-  // Display withdrawal method type only, not sensitive account details
-  const withdrawalMethod = profile.withdrawal_account_type === 'mobile' 
-    ? 'Mobile Money Account'
-    : 'Bank Account';
-
-  // Check if we're using MTN MoMo in sandbox mode (for EUR warning)
-  const provider = profile ? selectWithdrawalProvider({
-    country: profile.country || '',
-    accountType: profile.withdrawal_account_type as WithdrawalAccountType,
-  }) : null;
-  const isMTNMoMo = provider === 'mtn_momo';
-  const showSandboxWarning = isMTNMoMo && profile?.currency !== 'EUR';
+  // Minimal UI: only amount and submit
 
   return (
     <div className="space-y-6">
@@ -183,36 +174,9 @@ export const WithdrawSection = () => {
         </p>
       </div>
 
-      {/* Sandbox Mode Warning */}
-      {showSandboxWarning && (
-        <Alert className="border-amber-500/50 bg-amber-500/10">
-          <AlertTriangle className="h-4 w-4 text-amber-500" />
-          <AlertDescription className="text-sm">
-            <strong>Sandbox Mode:</strong> MTN MoMo sandbox only accepts EUR currency. 
-            In production, withdrawals will use your account currency ({profile.currency}).
-          </AlertDescription>
-        </Alert>
-      )}
-
       <Card className="p-6">
         <form onSubmit={handleWithdraw} className="space-y-6">
-          {/* Withdrawal Account Info */}
-          <div className="p-4 bg-muted rounded-lg space-y-2">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              {profile.withdrawal_account_type === 'mobile' ? (
-                <Smartphone className="h-4 w-4" />
-              ) : (
-                <Building className="h-4 w-4" />
-              )}
-              <span>Withdrawal Destination</span>
-            </div>
-            <p className="text-sm text-muted-foreground">{withdrawalMethod}</p>
-            <p className="text-xs text-muted-foreground">
-              Account details are securely stored. To change, go to Settings.
-            </p>
-          </div>
-
-          {/* Amount Input */}
+          {/* Amount */}
           <div>
             <Label htmlFor="amount">Withdrawal Amount</Label>
             <Input
@@ -228,67 +192,28 @@ export const WithdrawSection = () => {
             <p className="text-sm text-muted-foreground mt-1">
               Available balance: {profile.currency} {Number(profile.balance || 0).toFixed(2)}
             </p>
-          </div>
-
-          {/* Fee Breakdown */}
-          {amountNum > 0 && (
-            <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Withdrawal amount:</span>
-                <span className="font-medium">{profile.currency} {amountNum.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Processing fee ({withdrawalFeePercent}%):</span>
-                <span className="font-medium text-red-600 dark:text-red-400">
-                  -{profile.currency} {feeAmount.toFixed(2)}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Total deducted:</span>
-                <span className="font-medium">{profile.currency} {totalRequired.toFixed(2)}</span>
-              </div>
-              <div className="pt-2 border-t border-blue-200 dark:border-blue-800">
-                <div className="flex justify-between">
-                  <span className="font-semibold">You will receive:</span>
-                  <span className="font-bold text-lg text-green-600 dark:text-green-400">
-                    {profile.currency} {youReceive.toFixed(2)}
-                  </span>
+            {amountNum > 0 && (
+              <div className="mt-3 p-3 rounded-lg bg-muted/40 border border-border">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Fee ({withdrawalFeePercent}%)</span>
+                  <span className="font-medium text-red-600 dark:text-red-400">-{profile.currency} {feeAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm mt-2">
+                  <span className="text-muted-foreground">You will receive</span>
+                  <span className="font-semibold">{profile.currency} {youReceive.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs mt-2 text-muted-foreground">
+                  <span>Estimated processing time</span>
+                  <span>{estimatedTime}</span>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           <Button type="submit" disabled={loading || !amount || amountNum <= 0} className="w-full">
             {loading ? 'Processing...' : 'Confirm Withdrawal'}
           </Button>
         </form>
-      </Card>
-
-      <Card className="p-6 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
-        <h3 className="font-semibold text-foreground mb-2">Processing Time & Provider</h3>
-        <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">
-            <span className="font-medium">Provider:</span>{' '}
-            {getProviderDisplayName(
-              selectWithdrawalProvider({
-                country: profile.country,
-                accountType: profile.withdrawal_account_type,
-                mobileProvider: profile.mobile_provider,
-              })
-            )}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            <span className="font-medium">Processing Time:</span>{' '}
-            {getProcessingTime(
-              selectWithdrawalProvider({
-                country: profile.country,
-                accountType: profile.withdrawal_account_type,
-                mobileProvider: profile.mobile_provider,
-              }),
-              profile.withdrawal_account_type
-            )}
-          </p>
-        </div>
       </Card>
     </div>
   );

@@ -7,8 +7,33 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Settings as SettingsIcon, Shield, Bell, Mail, DollarSign, Database, CreditCard } from "lucide-react";
 import PaymentProvidersSettings from "@/components/admin/PaymentProvidersSettings";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function AdminSettings() {
+  const [businessName, setBusinessName] = useState<string>("Your Business");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [primaryColor, setPrimaryColor] = useState<string>("#111827");
+  const [secondaryColor, setSecondaryColor] = useState<string>("#1f2937");
+
+  useEffect(() => {
+    const loadBranding = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("profiles")
+        .select("business_name, logo_url, primary_color, secondary_color")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (data) {
+        setBusinessName(data.business_name || "Your Business");
+        setLogoUrl(data.logo_url);
+        if (data.primary_color) setPrimaryColor(data.primary_color);
+        if (data.secondary_color) setSecondaryColor(data.secondary_color);
+      }
+    };
+    loadBranding();
+  }, []);
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -18,7 +43,7 @@ export default function AdminSettings() {
       </div>
 
       <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="general" className="gap-2">
             <SettingsIcon className="h-4 w-4" />
             General
@@ -42,6 +67,10 @@ export default function AdminSettings() {
           <TabsTrigger value="database" className="gap-2">
             <Database className="h-4 w-4" />
             Database
+          </TabsTrigger>
+          <TabsTrigger value="branding" className="gap-2">
+            <Mail className="h-4 w-4" />
+            Branding
           </TabsTrigger>
         </TabsList>
 
@@ -90,6 +119,89 @@ export default function AdminSettings() {
                   <p className="text-sm text-muted-foreground">Require email verification for new users</p>
                 </div>
                 <Switch defaultChecked />
+              </div>
+            </div>
+          </Card>
+        </TabsContent>
+
+        {/* Branding Settings */}
+        <TabsContent value="branding" className="space-y-4">
+          <Card className="p-6 bg-card/50 backdrop-blur-sm">
+            <h3 className="text-lg font-semibold mb-4">Checkout Branding</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Controls */}
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="business-name">Business Name</Label>
+                  <Input id="business-name" value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
+                </div>
+                <div>
+                  <Label htmlFor="logo-url">Logo URL</Label>
+                  <Input id="logo-url" value={logoUrl ?? ""} onChange={(e) => setLogoUrl(e.target.value || null)} placeholder="https://..." />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="primary-color">Primary Color</Label>
+                    <Input id="primary-color" type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label htmlFor="secondary-color">Secondary Color</Label>
+                    <Input id="secondary-color" type="color" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} />
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground">This preview updates live. Save to persist your branding.</p>
+              </div>
+
+              {/* Live Preview - mirrors checkout layout */}
+              <div className="rounded-xl overflow-hidden border border-border">
+                <div
+                  className="min-h-[420px] w-full flex"
+                  style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
+                >
+                  {/* Left branding panel */}
+                  <div
+                    className="hidden lg:flex w-1/5 xl:w-1/4 items-center justify-center text-white"
+                    style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
+                  >
+                    <div className="p-4 text-center">
+                      {logoUrl ? (
+                        <img src={logoUrl} alt={businessName} className="mx-auto h-10 object-contain mb-2" />
+                      ) : (
+                        <div className="text-lg font-semibold mb-1">{businessName}</div>
+                      )}
+                      <div className="text-white/80 text-xs">Payment #AB12CD34</div>
+                      <div className="text-xl font-bold mt-1">KES 1,250.00</div>
+                    </div>
+                  </div>
+
+                  {/* Center content */}
+                  <div className="flex-1 min-w-0 bg-background flex items-center justify-center">
+                    <div className="w-full h-full flex items-center justify-center p-6">
+                      <div className="w-full max-w-md bg-card rounded-lg border border-border shadow-sm p-4">
+                        <div className="text-sm text-muted-foreground mb-2">Secure Payment</div>
+                        <div className="h-40 rounded-md bg-muted flex items-center justify-center text-xs text-muted-foreground">
+                          Checkout iframe preview
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <div className="h-9 rounded bg-muted" />
+                          <div className="h-9 rounded bg-muted" />
+                          <div className="h-9 rounded bg-muted col-span-2" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right branding panel */}
+                  <div
+                    className="hidden lg:flex w-1/5 xl:w-1/4 items-center justify-center text-white"
+                    style={{ background: `linear-gradient(135deg, ${secondaryColor}, ${primaryColor})` }}
+                  >
+                    <div className="p-4 text-center">
+                      <div className="text-[10px] uppercase tracking-wide text-white/80 mb-1">Secured by</div>
+                      <div className="text-sm font-semibold">NardoPay</div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </Card>

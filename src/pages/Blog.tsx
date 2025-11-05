@@ -200,9 +200,14 @@ const Blog = () => {
                     </Button>
                   </Link>
                 </div>
-                <div className="bg-muted/50 rounded-r-lg h-full min-h-[300px] flex items-center justify-center">
-                  <p className="text-muted-foreground">Featured Image Placeholder</p>
-                </div>
+                <div
+                  className="rounded-r-lg h-full min-h-[300px]"
+                  style={{
+                    backgroundImage: `url('${featuredPost.image}')`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                  }}
+                />
               </div>
             </CardContent>
           </Card>
@@ -223,9 +228,14 @@ const Blog = () => {
             {filteredPosts.slice(1).map((post) => (
               <Card key={post.id} className="bg-card/80 backdrop-blur-sm border-border/50 hover:shadow-lg transition-all duration-300">
                 <CardContent className="p-0">
-                  <div className="bg-muted/50 h-48 rounded-t-lg flex items-center justify-center">
-                    <p className="text-muted-foreground">Image Placeholder</p>
-                  </div>
+                  <div
+                    className="h-48 rounded-t-lg"
+                    style={{
+                      backgroundImage: `url('${post.image}')`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                    }}
+                  />
                   <div className="p-6">
                     <div className="flex items-center gap-3 mb-3">
                       <Badge variant="outline" className="text-xs">{post.category}</Badge>

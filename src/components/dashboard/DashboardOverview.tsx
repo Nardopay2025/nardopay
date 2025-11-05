@@ -32,19 +32,23 @@ export const DashboardOverview = ({
         <QuickActionsSection onActionClick={setActiveTab} />
       </div>
 
-      {/* Active Links */}
-      <ActiveLinksSection
-        paymentLinks={paymentLinks}
-        donationLinks={donationLinks}
-        subscriptionLinks={subscriptionLinks}
-        catalogues={catalogues}
-      />
-
-      {/* Transaction History */}
-      <HistorySection
-        transactions={transactions}
-        onViewAll={() => setActiveTab('history')}
-      />
+      {/* Active Links (left) and Recent Transactions (right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+        <div className="h-full">
+          <ActiveLinksSection
+            paymentLinks={paymentLinks}
+            donationLinks={donationLinks}
+            subscriptionLinks={subscriptionLinks}
+            catalogues={catalogues}
+          />
+        </div>
+        <div className="h-full">
+          <HistorySection
+            transactions={transactions}
+            onViewAll={() => setActiveTab('history')}
+          />
+        </div>
+      </div>
 
       {/* Quick Actions - Desktop */}
       <div className="hidden lg:block">

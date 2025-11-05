@@ -41,10 +41,9 @@ export function PaymentMethodSelector({
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold">Choose Payment Method</h2>
       <p className="text-sm text-muted-foreground">Select how you'd like to pay</p>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         {paymentMethods.map((method) => {
           const Icon = method.icon;
           const isSelected = selectedMethod === method.id;
@@ -54,7 +53,7 @@ export function PaymentMethodSelector({
             <Card
               key={method.id}
               className={`
-                relative p-6 cursor-pointer transition-all border-2
+                relative p-4 cursor-pointer transition-all border-2
                 ${isSelected ? 'border-primary shadow-lg' : 'border-border hover:border-primary/50'}
                 ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}
               `}
@@ -63,26 +62,26 @@ export function PaymentMethodSelector({
                 borderColor: isSelected ? primaryColor : undefined,
               }}
             >
-              <div className="flex flex-col items-center text-center space-y-3">
+              <div className="flex items-center space-x-4">
                 <div
-                  className="p-3 rounded-full bg-muted"
+                  className="p-2 rounded-full bg-muted flex-shrink-0"
                   style={{
                     backgroundColor: isSelected ? `${primaryColor}20` : undefined,
                   }}
                 >
                   <Icon
-                    className="h-8 w-8"
+                    className="h-6 w-6"
                     style={{
                       color: isSelected ? primaryColor : undefined,
                     }}
                   />
                 </div>
                 
-                <div>
-                  <h3 className="font-semibold text-base mb-1">{method.title}</h3>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-sm mb-1">{method.title}</h3>
                   <p className="text-xs text-muted-foreground">{method.description}</p>
                   {!method.supported && (
-                    <p className="text-xs text-destructive italic mt-2">
+                    <p className="text-xs text-destructive italic mt-1">
                       Not available in your region
                     </p>
                   )}

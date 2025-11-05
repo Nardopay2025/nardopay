@@ -5,11 +5,9 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { PaymentMethodSelector } from '@/components/checkout/PaymentMethodSelector';
-import { PaymentDetailsForm } from '@/components/checkout/PaymentDetailsForm';
-import { processPayment, PaymentMethod } from '@/lib/paymentRouter';
+import { processPayment } from '@/lib/paymentRouter';
 
 export default function PaymentLinkPage() {
   const { linkCode } = useParams();
@@ -21,8 +19,7 @@ export default function PaymentLinkPage() {
   const [merchantCountry, setMerchantCountry] = useState<string>('KE');
   const [payerName, setPayerName] = useState('');
   const [payerEmail, setPayerEmail] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
+  const [whatsappNumber, setWhatsappNumber] = useState('');
   const [processing, setProcessing] = useState(false);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
 
@@ -99,40 +96,39 @@ export default function PaymentLinkPage() {
     }
   };
 
-  const handlePaymentSubmit = async (paymentDetails: any) => {
-    if (!payerName || !payerEmail) {
+  const handleCheckout = async () => {
+    if (!payerName || !payerEmail || !whatsappNumber) {
       toast({
         title: 'Missing Information',
-        description: 'Please enter your name and email address',
-        variant: 'destructive',
-      });
-      return;
-    }
-    
-    // Validate phone format if provided
-    if (phoneNumber && !/^\+?[1-9]\d{1,14}$/.test(phoneNumber)) {
-      toast({
-        title: 'Invalid Phone Number',
-        description: 'Please enter a valid phone number with country code (e.g., +27123456789)',
+        description: 'Please enter your name, email address, and WhatsApp number',
         variant: 'destructive',
       });
       return;
     }
 
+    // Validate WhatsApp number format
+    if (!/^\+?[1-9]\d{1,14}$/.test(whatsappNumber)) {
+      toast({
+        title: 'Invalid WhatsApp Number',
+        description: 'Please enter a valid WhatsApp number with country code (e.g., +27123456789)',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     setProcessing(true);
 
     try {
       const result = await processPayment({
         linkType: 'payment',
         linkCode: linkCode!,
-        paymentMethod: selectedMethod!,
+        paymentMethod: 'mobile_money', // Default payment method - gateway will handle method selection
         merchantCountry,
         customerDetails: {
           name: payerName,
           email: payerEmail,
-          phone: phoneNumber,
+          phone: whatsappNumber,
         },
-        cardDetails: paymentDetails.cardDetails,
       });
 
       if (result.success && result.redirect_url) {
@@ -181,58 +177,43 @@ export default function PaymentLinkPage() {
   // Show payment iframe if we have the URL
   if (paymentUrl) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background to-muted">
+      <div
+        className="min-h-screen w-full flex"
+        style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
+      >
+        {/* Left branding panel (hidden on small screens) */}
         <div
-          className="p-6 text-white shadow-xl relative overflow-hidden"
+          className="hidden lg:flex w-1/5 xl:w-1/4 items-center justify-center text-white"
           style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
         >
-          <div className="max-w-7xl mx-auto">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                {invoiceSettings?.logo_url ? (
-                  <img
-                    src={invoiceSettings.logo_url}
-                    alt={businessName}
-                    className="h-12 object-contain bg-white/10 backdrop-blur-sm rounded-lg p-2"
-                  />
-                ) : (
-                  <h1 className="text-2xl font-bold">{businessName}</h1>
-                )}
-              </div>
-              <div className="text-right">
-                <div className="text-white/80 text-sm mb-1">
-                  Payment #{linkCode?.slice(0, 8).toUpperCase()}
-                </div>
-                <div className="text-2xl font-bold">
-                  {paymentLink.currency} {parseFloat(paymentLink.amount).toFixed(2)}
-                </div>
-              </div>
-            </div>
+          <div className="p-6 text-center">
+            {invoiceSettings?.logo_url ? (
+              <img src={invoiceSettings.logo_url} alt={businessName} className="mx-auto h-14 object-contain mb-4" />
+            ) : (
+              <div className="text-2xl font-bold mb-2">{businessName}</div>
+            )}
+            <div className="text-white/80 text-sm">Payment #{linkCode?.slice(0, 8).toUpperCase()}</div>
+            <div className="text-2xl font-bold mt-2">{paymentLink.currency} {parseFloat(paymentLink.amount).toFixed(2)}</div>
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto p-6">
-          <div className="bg-card rounded-xl shadow-2xl overflow-hidden border border-border">
-            <div className="bg-muted/50 px-6 py-3 border-b border-border flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path
-                    fillRule="evenodd"
-                    d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                Powered by NardoPay
-              </div>
-              <div className="text-xs text-muted-foreground">Encrypted & Secure Payment</div>
-            </div>
+        {/* Center content: full-height iframe */}
+        <div className="flex-1 min-w-0">
+          <iframe
+            src={paymentUrl}
+            title="Secure Payment Gateway"
+            className="w-full h-screen border-0 bg-background"
+          />
+        </div>
 
-            <iframe
-              src={paymentUrl}
-              className="w-full border-0 bg-background"
-              style={{ height: 'calc(100vh - 280px)', minHeight: '500px' }}
-              title="Secure Payment Gateway"
-            />
+        {/* Right branding panel (hidden on small screens) */}
+        <div
+          className="hidden lg:flex w-1/5 xl:w-1/4 items-center justify-center text-white"
+          style={{ background: `linear-gradient(135deg, ${secondaryColor}, ${primaryColor})` }}
+        >
+          <div className="p-6 text-center">
+            <div className="text-xs uppercase tracking-wide text-white/80 mb-2">Secured by</div>
+            <div className="text-lg font-semibold">NardoPay</div>
           </div>
         </div>
       </div>
@@ -240,160 +221,171 @@ export default function PaymentLinkPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-2xl overflow-hidden border-border">
-        {/* Invoice Header with Brand Colors */}
-        <div 
-          className="p-8 text-white"
-          style={{ 
-            background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` 
-          }}
-        >
-          <div className="flex justify-between items-start">
-            <div>
-              {invoiceSettings?.logo_url ? (
-                <img 
-                  src={invoiceSettings.logo_url} 
-                  alt={businessName}
-                  className="h-12 mb-4 object-contain"
-                />
-              ) : (
-                <h1 className="text-2xl font-bold mb-2">{businessName}</h1>
-              )}
-              {invoiceSettings?.business_address && (
-                <p className="text-white/80 text-sm">{invoiceSettings.business_address}</p>
-              )}
-            </div>
-            <div className="text-right">
-              <p className="text-white/80 text-sm">INVOICE</p>
-              <p className="text-xl font-bold">#{linkCode?.slice(0, 8).toUpperCase()}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Invoice Body */}
-        <div className="p-8 space-y-6">
-          {/* Product Details */}
-          <div className="border-b border-border pb-6">
-            <h2 className="text-xl font-semibold mb-4">Payment Details</h2>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Item</span>
-                <span className="font-medium">{paymentLink.product_name}</span>
-              </div>
-              {paymentLink.description && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Description</span>
-                  <span className="text-sm">{paymentLink.description}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-lg font-bold pt-2">
-                <span>Amount Due</span>
-                <span style={{ color: primaryColor }}>
-                  {paymentLink.currency} {parseFloat(paymentLink.amount).toFixed(2)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Customer Information */}
-          <div className="space-y-6">
-            <div className="space-y-4">
-              <h3 className="font-semibold">Customer Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input
-                    id="name"
-                    type="text"
-                    value={payerName}
-                    onChange={(e) => setPayerName(e.target.value)}
-                    placeholder="John Doe"
-                    required
-                    className="bg-background"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="email">Email Address</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={payerEmail}
-                    onChange={(e) => setPayerEmail(e.target.value)}
-                    placeholder="john@example.com"
-                    required
-                    className="bg-background"
-                  />
-                </div>
-              </div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-hero p-4">
+      <div className="w-full max-w-7xl">
+        <Card className="overflow-hidden bg-card/80 backdrop-blur-sm border-2 shadow-2xl rounded-xl">
+          {/* Invoice Header with Brand Colors */}
+          <div 
+            className="p-8 text-white"
+            style={{ 
+              background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` 
+            }}
+          >
+            <div className="flex justify-between items-start">
               <div>
-                <Label htmlFor="phone">Phone Number (Optional)</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="+27123456789"
-                  className="bg-background"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Include country code, digits only (e.g., +27123456789)
-                </p>
+                {invoiceSettings?.logo_url ? (
+                  <img 
+                    src={invoiceSettings.logo_url} 
+                    alt={businessName}
+                    className="h-12 mb-4 object-contain"
+                  />
+                ) : (
+                  <h1 className="text-2xl font-bold mb-2">{businessName}</h1>
+                )}
+                {invoiceSettings?.business_address && (
+                  <p className="text-white/80 text-sm">{invoiceSettings.business_address}</p>
+                )}
+              </div>
+              <div className="text-right">
+                <p className="text-white/80 text-sm">INVOICE</p>
+                <p className="text-xl font-bold">#{linkCode?.slice(0, 8).toUpperCase()}</p>
               </div>
             </div>
+          </div>
 
-            {/* Payment Method Selection */}
-            {!selectedMethod && (
-              <div className="space-y-4">
-                <h3 className="font-semibold">Payment Method</h3>
-                <PaymentMethodSelector
-                  selectedMethod={selectedMethod}
-                  onSelectMethod={setSelectedMethod}
-                  merchantCountry={merchantCountry}
-                  primaryColor={primaryColor}
-                />
-              </div>
-            )}
-
-            {/* Payment Details Form */}
-            {selectedMethod && (
+          {/* Two Column Layout aligned with hero preview */}
+          <div className="p-8">
+            <div className="grid gap-10 lg:grid-cols-2">
+              {/* Left: Product image and description */}
               <div className="space-y-6">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedMethod(null)}
-                  className="mb-4"
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Change payment method
-                </Button>
+                <div className="rounded-xl overflow-hidden bg-muted/40 border border-border min-h-[260px] flex items-center justify-center">
+                  {paymentLink.image_url ? (
+                    <img
+                      src={paymentLink.image_url}
+                      alt={paymentLink.product_name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-background">
+                      <span className="text-muted-foreground">Product image</span>
+                    </div>
+                  )}
+                </div>
 
-                <PaymentDetailsForm
-                  paymentMethod={selectedMethod}
-                  amount={parseFloat(paymentLink.amount)}
-                  currency={paymentLink.currency}
-                  onSubmit={handlePaymentSubmit}
-                  processing={processing}
-                  primaryColor={primaryColor}
-                  secondaryColor={secondaryColor}
-                />
+                <div className="space-y-2">
+                  <h3 className="text-2xl font-bold text-foreground">{paymentLink.product_name}</h3>
+                  {paymentLink.description && (
+                    <p className="text-muted-foreground leading-relaxed">{paymentLink.description}</p>
+                  )}
+                </div>
               </div>
-            )}
+
+              {/* Right: Order summary and client details */}
+              <div className="space-y-6">
+                {/* Order summary panel */}
+                <div className="rounded-xl bg-foreground/5 dark:bg-white/5 p-6 border border-border">
+                  <div className="text-foreground font-semibold mb-4">Order Summary</div>
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <div className="text-lg font-semibold">{paymentLink.product_name}</div>
+                      {paymentLink.description && (
+                        <div className="text-sm text-muted-foreground">{paymentLink.description}</div>
+                      )}
+                    </div>
+                    <div className="text-xl font-bold">{paymentLink.currency} {parseFloat(paymentLink.amount).toFixed(2)}</div>
+                  </div>
+                  <div className="flex items-center justify-between pt-4 mt-4 border-t border-border">
+                    <span className="text-muted-foreground">Total</span>
+                    <span className="text-xl font-bold">{paymentLink.currency} {parseFloat(paymentLink.amount).toFixed(2)}</span>
+                  </div>
+                </div>
+
+                {/* Client details (replaces payment option buttons) */}
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="name">Full Name</Label>
+                      <Input
+                        id="name"
+                        type="text"
+                        value={payerName}
+                        onChange={(e) => setPayerName(e.target.value)}
+                        placeholder="John Doe"
+                        required
+                        className="bg-background"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="email">Email Address</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={payerEmail}
+                        onChange={(e) => setPayerEmail(e.target.value)}
+                        placeholder="john@example.com"
+                        required
+                        className="bg-background"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="whatsapp">WhatsApp Number</Label>
+                    <Input
+                      id="whatsapp"
+                      type="tel"
+                      value={whatsappNumber}
+                      onChange={(e) => setWhatsappNumber(e.target.value)}
+                      placeholder="+27123456789"
+                      required
+                      className="bg-background"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Include country code (e.g., +27123456789)</p>
+                  </div>
+                </div>
+
+                {/* Pay button */}
+                <div>
+                  <Button
+                    onClick={handleCheckout}
+                    disabled={processing || !payerName || !payerEmail || !whatsappNumber}
+                    className="w-full text-white border-0 hover:opacity-90 transition-opacity disabled:opacity-50"
+                    size="lg"
+                    style={{
+                      background:
+                        processing || !payerName || !payerEmail || !whatsappNumber
+                          ? `${primaryColor}80`
+                          : `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
+                    }}
+                  >
+                    {processing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      `Pay ${paymentLink.currency} ${parseFloat(paymentLink.amount).toFixed(2)}`
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Footer */}
-          {invoiceSettings?.invoice_footer && (
-            <div className="text-center text-sm text-muted-foreground pt-4 border-t border-border">
-              {invoiceSettings.invoice_footer}
+          <div className="px-8 pb-8">
+            {invoiceSettings?.invoice_footer && (
+              <div className="text-center text-sm text-muted-foreground pt-4 border-t border-border mb-4">
+                {invoiceSettings.invoice_footer}
+              </div>
+            )}
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground">
+                Secured by NardoPay • Your payment information is encrypted
+              </p>
             </div>
-          )}
-          <div className="text-center">
-            <p className="text-xs text-muted-foreground">
-              Secured by NardoPay • Your payment information is encrypted
-            </p>
           </div>
-        </div>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }

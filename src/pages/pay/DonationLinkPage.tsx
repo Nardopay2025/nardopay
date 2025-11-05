@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Loader2, Heart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { processPayment } from '@/lib/paymentRouter';
 
 export default function DonationLinkPage() {
   const { linkCode } = useParams();
@@ -19,7 +20,10 @@ export default function DonationLinkPage() {
   const [donorName, setDonorName] = useState('');
   const [donorEmail, setDonorEmail] = useState('');
   const [donationAmount, setDonationAmount] = useState('');
+  const [donorPhone, setDonorPhone] = useState('');
+  const [merchantCountry, setMerchantCountry] = useState<string>('KE');
   const [processing, setProcessing] = useState(false);
+  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (linkCode) {
@@ -48,13 +52,12 @@ export default function DonationLinkPage() {
         return;
       }
 
-      console.log('Donation link found:', row);
       setDonationLink(row);
       
       // Fetch merchant's branding settings from safe_profiles view (no PII exposure)
       const { data: profileData, error: profileError } = await supabase
         .from('safe_profiles')
-        .select('business_name, logo_url, primary_color, secondary_color')
+        .select('business_name, logo_url, primary_color, secondary_color, country')
         .eq('id', row.user_id)
         .single();
 
@@ -72,6 +75,7 @@ export default function DonationLinkPage() {
           primary_color: profileData.primary_color || '#EF4444',
           secondary_color: profileData.secondary_color || '#DC2626',
         });
+        setMerchantCountry(profileData.country || 'KE');
       } else {
         // Default to NardoPay branding
         setInvoiceSettings({
@@ -83,6 +87,7 @@ export default function DonationLinkPage() {
           primary_color: '#EF4444',
           secondary_color: '#DC2626',
         });
+        setMerchantCountry('KE');
       }
     } catch (error: any) {
       console.error('Error fetching donation link:', error);
@@ -93,26 +98,46 @@ export default function DonationLinkPage() {
     }
   };
 
-  const handleDonation = (e: React.FormEvent) => {
+  const handleDonation = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!donationAmount || parseFloat(donationAmount) <= 0) {
-      toast({
-        title: 'Invalid Amount',
-        description: 'Please enter a valid donation amount',
-        variant: 'destructive',
-      });
+    // Validate inputs
+    if (!donationAmount || isNaN(parseFloat(donationAmount)) || parseFloat(donationAmount) <= 0) {
+      toast({ title: 'Invalid Amount', description: 'Please enter a valid donation amount', variant: 'destructive' });
+      return;
+    }
+    const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+    if (!donorPhone || !phoneRegex.test(donorPhone)) {
+      toast({ title: 'Invalid Phone Number', description: 'Enter a valid mobile number with country code (e.g., +2507...)', variant: 'destructive' });
       return;
     }
 
-    // Navigate to checkout page with customer details and donation amount
-    const params = new URLSearchParams({
-      name: donorName,
-      email: donorEmail,
-      amount: donationAmount,
-    });
-    
-    navigate(`/pay/donate/${linkCode}/checkout?${params.toString()}`);
+    setProcessing(true);
+
+    try {
+      const result = await processPayment({
+        linkType: 'donation',
+        linkCode: linkCode!,
+        paymentMethod: 'mobile_money',
+        merchantCountry,
+        customerDetails: {
+          name: donorName,
+          email: donorEmail,
+          phone: donorPhone,
+        },
+        donationAmount,
+      });
+
+      if (result.success && result.redirect_url) {
+        setPaymentUrl(result.redirect_url);
+      } else {
+        throw new Error(result.error || 'Payment failed: No redirect URL returned by provider');
+      }
+    } catch (error: any) {
+      console.error('Donation payment error:', error);
+      toast({ title: 'Payment Failed', description: error.message || 'Failed to start donation payment', variant: 'destructive' });
+      setProcessing(false);
+    }
   };
 
   if (loading) {
@@ -128,9 +153,55 @@ export default function DonationLinkPage() {
   const secondaryColor = invoiceSettings?.secondary_color || '#DC2626';
   const businessName = invoiceSettings?.business_name || 'Organization';
 
+  // Show payment iframe if we have the URL
+  if (paymentUrl) {
+    return (
+      <div
+        className="min-h-screen w-full flex"
+        style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
+      >
+        {/* Left branding panel (hidden on small screens) */}
+        <div
+          className="hidden lg:flex w-1/5 xl:w-1/4 items-center justify-center text-white"
+          style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
+        >
+          <div className="p-6 text-center">
+            {invoiceSettings?.logo_url ? (
+              <img src={invoiceSettings.logo_url} alt={businessName} className="mx-auto h-14 object-contain mb-4" />
+            ) : (
+              <div className="text-2xl font-bold mb-2">{businessName}</div>
+            )}
+            <div className="text-white/80 text-sm">Donation #{linkCode?.slice(0, 8).toUpperCase()}</div>
+            <div className="text-2xl font-bold mt-2">{donationLink.currency} {parseFloat(donationAmount).toFixed(2)}</div>
+          </div>
+        </div>
+
+        {/* Center content: full-height iframe */}
+        <div className="flex-1 min-w-0">
+          <iframe
+            src={paymentUrl}
+            title="Secure Payment Gateway"
+            className="w-full h-screen border-0 bg-background"
+          />
+        </div>
+
+        {/* Right branding panel (hidden on small screens) */}
+        <div
+          className="hidden lg:flex w-1/5 xl:w-1/4 items-center justify-center text-white"
+          style={{ background: `linear-gradient(135deg, ${secondaryColor}, ${primaryColor})` }}
+        >
+          <div className="p-6 text-center">
+            <div className="text-xs uppercase tracking-wide text-white/80 mb-2">Secured by</div>
+            <div className="text-lg font-semibold">NardoPay</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-2xl overflow-hidden border-border">
+      <Card className="w-full max-w-5xl overflow-hidden border-border">
         {/* Invoice Header with Brand Colors */}
         <div 
           className="p-8 text-white"
@@ -152,9 +223,6 @@ export default function DonationLinkPage() {
                   <h1 className="text-2xl font-bold">{businessName}</h1>
                 </div>
               )}
-              {invoiceSettings?.business_address && (
-                <p className="text-white/80 text-sm">{invoiceSettings.business_address}</p>
-              )}
             </div>
             <div className="text-right">
               <p className="text-white/80 text-sm">DONATION</p>
@@ -164,113 +232,136 @@ export default function DonationLinkPage() {
         </div>
 
         {/* Invoice Body */}
-        <div className="p-8 space-y-6">
-          {/* Campaign Details */}
-          <div className="border-b border-border pb-6">
-            <h2 className="text-xl font-semibold mb-2">{donationLink.title}</h2>
-            {donationLink.description && (
-              <p className="text-muted-foreground mb-4">{donationLink.description}</p>
-            )}
-            
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Progress</span>
-                <span className="font-semibold">
-                  {donationLink.currency} {parseFloat(donationLink.current_amount || 0).toFixed(2)} of {donationLink.currency} {parseFloat(donationLink.goal_amount).toFixed(2)}
-                </span>
+        <div className="p-8">
+          <div className="grid gap-10 lg:grid-cols-2">
+            {/* Left: Campaign image */}
+            <div className="space-y-6">
+              <div className="rounded-xl overflow-hidden bg-muted/40 border border-border min-h-[260px] flex items-center justify-center">
+                {donationLink?.image_url ? (
+                  <img
+                    src={donationLink.image_url}
+                    alt={donationLink.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-background">
+                    <span className="text-muted-foreground">Campaign image</span>
+                  </div>
+                )}
               </div>
-              <Progress value={progress} className="h-2" />
-              <p className="text-xs text-muted-foreground">
-                {donationLink.donations_count || 0} donations received
-              </p>
+
+              {/* Goal details under picture */}
+              <div className="space-y-3">
+                <h2 className="text-xl font-semibold">{donationLink.title}</h2>
+                {donationLink.description && (
+                  <p className="text-muted-foreground">{donationLink.description}</p>
+                )}
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Raised</span>{' '}
+                  <span className="font-semibold">
+                    {donationLink.currency} {parseFloat(donationLink.current_amount || 0).toFixed(2)}
+                  </span>{' '}
+                  <span className="text-muted-foreground">of</span>{' '}
+                  <span className="font-semibold">
+                    {donationLink.currency} {parseFloat(donationLink.goal_amount).toFixed(2)}
+                  </span>{' '}
+                  <span className="text-muted-foreground">({Math.min(100, Math.max(0, Math.round(progress)))}%)</span>
+                </div>
+                <Progress value={progress} className="h-2" />
+              </div>
+            </div>
+
+            {/* Right: Details and form */}
+            <div className="space-y-6">
+              {/* Donation Form */}
+              <form onSubmit={handleDonation} className="space-y-6">
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="amount">Donation Amount</Label>
+                    <Input
+                      id="amount"
+                      type="number"
+                      step="0.01"
+                      value={donationAmount}
+                      onChange={(e) => setDonationAmount(e.target.value)}
+                      placeholder="0.00"
+                      required
+                      className="bg-background text-lg font-semibold"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="name">Your Name</Label>
+                      <Input
+                        id="name"
+                        type="text"
+                        value={donorName}
+                        onChange={(e) => setDonorName(e.target.value)}
+                        placeholder="John Doe"
+                        required
+                        className="bg-background"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="email">Email Address</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={donorEmail}
+                        onChange={(e) => setDonorEmail(e.target.value)}
+                        placeholder="john@example.com"
+                        required
+                        className="bg-background"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="phone">Mobile Number (for Mobile Money)</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      value={donorPhone}
+                      onChange={(e) => setDonorPhone(e.target.value)}
+                      placeholder="+2507XXXXXXXX"
+                      required
+                      className="bg-background"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Include country code (e.g., +2507…)</p>
+                  </div>
+                </div>
+
+                <Button 
+                  type="submit" 
+                  className="w-full text-white border-0 hover:opacity-90 transition-opacity disabled:opacity-50" 
+                  disabled={processing}
+                  style={{ 
+                    background: processing
+                      ? `${primaryColor}80` 
+                      : `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` 
+                  }}
+                >
+                  {processing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    `Donate ${donationLink.currency} ${donationAmount ? parseFloat(donationAmount).toFixed(2) : ''}`
+                  )}
+                </Button>
+              </form>
             </div>
           </div>
 
-          {/* Donation Form */}
-          <form onSubmit={handleDonation} className="space-y-6">
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="amount">Donation Amount</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  step="0.01"
-                  value={donationAmount}
-                  onChange={(e) => setDonationAmount(e.target.value)}
-                  placeholder="0.00"
-                  required
-                  className="bg-background text-lg font-semibold"
-                />
-                <div className="grid grid-cols-3 gap-2 mt-2">
-                  <Button type="button" variant="outline" size="sm" onClick={() => setDonationAmount('10')}>
-                    {donationLink.currency} 10
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={() => setDonationAmount('50')}>
-                    {donationLink.currency} 50
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={() => setDonationAmount('100')}>
-                    {donationLink.currency} 100
-                  </Button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="name">Your Name</Label>
-                  <Input
-                    id="name"
-                    type="text"
-                    value={donorName}
-                    onChange={(e) => setDonorName(e.target.value)}
-                    placeholder="John Doe"
-                    required
-                    className="bg-background"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="email">Email Address</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={donorEmail}
-                    onChange={(e) => setDonorEmail(e.target.value)}
-                    placeholder="john@example.com"
-                    required
-                    className="bg-background"
-                  />
-                </div>
-              </div>
-            </div>
-
-
-            <Button 
-              type="submit" 
-              className="w-full text-white" 
-              disabled={processing || !donationAmount}
-              style={{ 
-                background: processing || !donationAmount
-                  ? undefined 
-                  : `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` 
-              }}
-            >
-              {processing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                `Proceed to Checkout${donationAmount ? ` - ${donationLink.currency} ${parseFloat(donationAmount).toFixed(2)}` : ''}`
-              )}
-            </Button>
-          </form>
-
           {/* Footer */}
           {invoiceSettings?.invoice_footer && (
-            <div className="text-center text-sm text-muted-foreground pt-4 border-t border-border">
+            <div className="text-center text-sm text-muted-foreground pt-4 border-t border-border mt-8">
               {invoiceSettings.invoice_footer}
             </div>
           )}
-          <div className="text-center">
+          <div className="text-center mt-2">
             <p className="text-xs text-muted-foreground">
               Secured by NardoPay • Your donation is encrypted and secure
             </p>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, Home, Plus, Send, ArrowUpRight, History, Settings, Menu } from 'lucide-react';
+import { Loader2, Home, Plus, Send, ArrowUpRight, History, Settings, Menu, Sun, Moon, ChevronRight } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -28,6 +28,19 @@ import { HistoryTab } from '@/components/dashboard/HistoryTab';
 import { CatalogueForm } from '@/components/dashboard/forms/CatalogueForm';
 import { SettingsForm } from '@/components/dashboard/forms/SettingsForm';
 import { CurrencySelectionDialog } from '@/components/dashboard/CurrencySelectionDialog';
+
+function SidebarReopenStrip() {
+  const { state } = useSidebar();
+  if (state !== 'collapsed') return null;
+  return (
+    <SidebarTrigger
+      aria-label="Expand sidebar"
+      className="fixed -left-3 top-1/2 -translate-y-1/2 z-40 h-10 w-10 rounded-full shadow-lg ring-1 ring-blue-600/30 bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white hover:scale-105 transition-transform focus:outline-none"
+    >
+      <ChevronRight className="h-5 w-5" />
+    </SidebarTrigger>
+  );
+}
 
 const sidebarItems = [
   { id: 'dashboard', label: 'Dashboard', icon: Home },
@@ -59,7 +72,7 @@ function AppSidebar({ activeTab, setActiveTab }: { activeTab: string; setActiveT
             </div>
             {!collapsed && <span className="font-semibold text-lg">Nardopay</span>}
           </div>
-          {!collapsed && <SidebarTrigger className="text-white hover:bg-blue-600/50" />}
+          <SidebarTrigger className="text-white hover:bg-blue-600/50" />
         </div>
 
         {/* Navigation */}
@@ -125,7 +138,31 @@ const Dashboard = () => {
   const [catalogues, setCatalogues] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [showCurrencyDialog, setShowCurrencyDialog] = useState(false);
-  const [userCurrency, setUserCurrency] = useState('KES');
+  const [userCurrency, setUserCurrency] = useState(() => {
+    try {
+      return localStorage.getItem('np_currency') || 'KES';
+    } catch {
+      return 'KES';
+    }
+  });
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    try {
+      const stored = localStorage.getItem('np_dashboard_theme');
+      return stored === 'light' ? 'light' : 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
+
+  const toggleTheme = () => {
+    setTheme((prev) => {
+      const next = prev === 'light' ? 'dark' : 'light';
+      try {
+        localStorage.setItem('np_dashboard_theme', next);
+      } catch {}
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!loading && !user) {
@@ -149,6 +186,9 @@ const Dashboard = () => {
       // Set user currency
       if (data?.currency) {
         setUserCurrency(data.currency);
+        try {
+          localStorage.setItem('np_currency', data.currency);
+        } catch {}
       }
       
       // Show dialog if currency hasn't been set yet
@@ -270,9 +310,12 @@ const Dashboard = () => {
   };
 
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen w-full">
+    <div className={theme === 'light' ? 'np-light' : ''}>
+      <SidebarProvider>
+        <div className="flex min-h-screen w-full">
         <AppSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+        {/* Always-visible reopen strip when collapsed */}
+        <SidebarReopenStrip />
         
         {/* Currency Selection Dialog */}
         <CurrencySelectionDialog
@@ -297,23 +340,40 @@ const Dashboard = () => {
                 </div>
                 <span className="font-semibold">Nardopay</span>
               </div>
-              <Avatar className="h-8 w-8">
-                <AvatarFallback>{user.email?.charAt(0).toUpperCase()}</AvatarFallback>
-              </Avatar>
+              <div className="flex items-center gap-3">
+                <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
+                  {theme === 'light' ? (
+                    <Moon className="h-5 w-5" />
+                  ) : (
+                    <Sun className="h-5 w-5" />
+                  )}
+                </Button>
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback>{user.email?.charAt(0).toUpperCase()}</AvatarFallback>
+                </Avatar>
+              </div>
             </div>
           </header>
 
           {/* Main Content */}
           <main className="min-h-screen">
             <div className="p-4 sm:p-6 lg:p-8">
+              {/* Desktop top bar actions */}
+              <div className="hidden lg:flex items-center justify-end">
+                <Button variant="outline" size="sm" onClick={toggleTheme} className="gap-2">
+                  {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+                  {theme === 'light' ? 'Dark mode' : 'Light mode'}
+                </Button>
+              </div>
               <div className="max-w-7xl mx-auto">
                 {renderContent()}
               </div>
             </div>
           </main>
         </div>
-      </div>
-    </SidebarProvider>
+        </div>
+      </SidebarProvider>
+    </div>
   );
 };
 

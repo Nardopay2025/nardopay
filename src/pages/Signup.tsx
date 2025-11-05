@@ -13,7 +13,7 @@ const Signup = () => {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { signup, isAuthenticated } = useAuth();
+  const { signup, signInWithGoogle, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -50,6 +50,19 @@ const Signup = () => {
         variant: "destructive",
       });
     } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogle = async () => {
+    setIsLoading(true);
+    const { error } = await signInWithGoogle();
+    if (error) {
+      toast({
+        title: "Google sign-in failed",
+        description: error.message || "Please try again",
+        variant: "destructive",
+      });
       setIsLoading(false);
     }
   };
@@ -132,6 +145,29 @@ const Signup = () => {
                 )}
               </Button>
             </form>
+
+            <div className="my-4 flex items-center">
+              <div className="h-px flex-1 bg-border" />
+              <span className="mx-3 text-xs text-muted-foreground">OR</span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full h-11"
+              onClick={handleGoogle}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Redirecting to Google...
+                </>
+              ) : (
+                "Continue with Google"
+              )}
+            </Button>
             
             <div className="mt-6 text-center">
               <p className="text-sm text-muted-foreground">

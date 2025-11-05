@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle, Package, Image, ShoppingCart, BarChart3, Zap, Globe, Shield, CreditCard } from "lucide-react";
 import { Link } from "react-router-dom";
+import CheckoutPreview from "@/components/checkout/CheckoutPreview";
 
 const Catalogue = () => {
   const features = [
@@ -115,58 +116,16 @@ const Catalogue = () => {
               </div>
             </div>
 
-            {/* Preview Card */}
+            {/* Preview Card (standardized) */}
             <div className="relative">
-              <Card className="bg-card/80 backdrop-blur-sm border-2 shadow-2xl">
-                <CardHeader className="border-b pb-4">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 bg-gradient-primary rounded-lg flex items-center justify-center">
-                      <Package className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg">My Store</CardTitle>
-                      <p className="text-xs text-muted-foreground">Premium Products</p>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-4 space-y-3">
-                  {/* Product Items */}
-                  <div className="bg-muted/50 rounded-lg p-3 flex gap-3">
-                    <div className="w-16 h-16 bg-gradient-primary/20 rounded flex items-center justify-center flex-shrink-0">
-                      <Package className="w-8 h-8 text-blue-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-sm text-foreground">Premium T-Shirt</h4>
-                      <p className="text-xs text-muted-foreground">High-quality cotton</p>
-                      <p className="text-sm font-bold text-foreground mt-1">$25.00</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-muted/50 rounded-lg p-3 flex gap-3">
-                    <div className="w-16 h-16 bg-gradient-primary/20 rounded flex items-center justify-center flex-shrink-0">
-                      <Package className="w-8 h-8 text-blue-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-sm text-foreground">Designer Cap</h4>
-                      <p className="text-xs text-muted-foreground">Limited edition</p>
-                      <p className="text-sm font-bold text-foreground mt-1">$15.00</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-muted/50 rounded-lg p-3 flex gap-3">
-                    <div className="w-16 h-16 bg-gradient-primary/20 rounded flex items-center justify-center flex-shrink-0">
-                      <Package className="w-8 h-8 text-blue-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-sm text-foreground">Leather Bag</h4>
-                      <p className="text-xs text-muted-foreground">Handcrafted</p>
-                      <p className="text-sm font-bold text-foreground mt-1">$45.00</p>
-                    </div>
-                  </div>
-
-                  <Button className="w-full" size="sm">Browse All Products</Button>
-                </CardContent>
-              </Card>
+              <CheckoutPreview
+                businessName="Nardo Boutique"
+                headerGradient="linear-gradient(135deg, #3B82F6, #1D4ED8)"
+                productName="Premium T-Shirt"
+                productDescription="High-quality cotton"
+                amount="USD 25.00"
+                imageUrl="https://images.unsplash.com/photo-1520975922284-8b456906c813?auto=format&fit=crop&q=80&w=1600"
+              />
             </div>
           </div>
         </div>

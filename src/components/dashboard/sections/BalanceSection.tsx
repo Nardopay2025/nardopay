@@ -12,7 +12,13 @@ interface BalanceSectionProps {
 export const BalanceSection = ({ onWithdraw }: BalanceSectionProps) => {
   const { user } = useAuth();
   const [showBalance, setShowBalance] = useState(true);
-  const [currency, setCurrency] = useState('KES');
+  const [currency, setCurrency] = useState(() => {
+    try {
+      return localStorage.getItem('np_currency') || 'KES';
+    } catch {
+      return 'KES';
+    }
+  });
   const [balance, setBalance] = useState(0);
 
   useEffect(() => {
@@ -32,6 +38,9 @@ export const BalanceSection = ({ onWithdraw }: BalanceSectionProps) => {
       if (error) throw error;
       if (data?.currency) {
         setCurrency(data.currency);
+        try {
+          localStorage.setItem('np_currency', data.currency);
+        } catch {}
       }
       if (data?.balance !== null) {
         setBalance(Number(data.balance));

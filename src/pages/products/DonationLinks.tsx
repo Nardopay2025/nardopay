@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle, Heart, Users, Globe, Shield, TrendingUp, Mail, Share2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import CheckoutPreview from "@/components/checkout/CheckoutPreview";
 
 const DonationLinks = () => {
   const features = [
@@ -115,44 +116,16 @@ const DonationLinks = () => {
               </div>
             </div>
 
-            {/* Preview Card */}
+            {/* Preview Card (standardized) */}
             <div className="relative">
-              <Card className="bg-card/80 backdrop-blur-sm border-2 shadow-2xl">
-                <CardHeader className="text-center border-b pb-6">
-                  <div className="w-20 h-20 bg-gradient-primary rounded-full mx-auto mb-4 flex items-center justify-center">
-                    <Heart className="w-10 h-10 text-white" />
-                  </div>
-                  <CardTitle className="text-2xl mb-2">Support Our Cause</CardTitle>
-                  <p className="text-muted-foreground">Help us make a difference in our community</p>
-                </CardHeader>
-                <CardContent className="p-8">
-                  <div className="mb-6">
-                    <p className="text-sm font-semibold text-muted-foreground mb-3">Choose an amount</p>
-                    <div className="grid grid-cols-3 gap-3 mb-4">
-                      <Button variant="outline" className="h-14 text-lg font-semibold">$10</Button>
-                      <Button variant="outline" className="h-14 text-lg font-semibold border-2 border-blue-primary">$25</Button>
-                      <Button variant="outline" className="h-14 text-lg font-semibold">$50</Button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Button variant="outline" className="h-14 text-lg font-semibold">$100</Button>
-                      <Button variant="outline" className="h-14 text-lg font-semibold">Custom</Button>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-3 mb-6">
-                    <div className="flex items-center gap-2">
-                      <input type="checkbox" className="w-4 h-4" />
-                      <span className="text-sm text-foreground">Make this a monthly donation</span>
-                    </div>
-                  </div>
-                  
-                  <Button className="w-full" size="lg">Donate Now</Button>
-                  
-                  <p className="text-xs text-muted-foreground text-center mt-4">
-                    Secure payment powered by Nardopay
-                  </p>
-                </CardContent>
-              </Card>
+              <CheckoutPreview
+                businessName="Hope Foundation"
+                headerGradient="linear-gradient(135deg, #10B981, #059669)"
+                productName="Support Our Cause"
+                productDescription="Help us make a difference in our community"
+                amount="USD 25.00"
+                imageUrl="https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?auto=format&fit=crop&q=80&w=1600"
+              />
             </div>
           </div>
         </div>

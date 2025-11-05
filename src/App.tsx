@@ -68,6 +68,7 @@ const AppContent = () => {
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/admin" element={<AdminDashboard />} />
       <Route path="/admin/*" element={<AdminDashboard />} />
       
       {/* Payment Link Routes - These must come before product routes */}

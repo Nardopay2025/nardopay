@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle, Link2, Smartphone, Globe, Shield, Zap, Clock, BarChart3, Share2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import CheckoutPreview from "@/components/checkout/CheckoutPreview";
 
 const PaymentLinks = () => {
   const features = [
@@ -115,45 +116,16 @@ const PaymentLinks = () => {
               </div>
             </div>
 
-            {/* Preview Card */}
+            {/* Preview Card (standardized) */}
             <div className="relative">
-              <Card className="bg-card/80 backdrop-blur-sm border-2 shadow-2xl">
-                <CardHeader className="text-center border-b pb-4">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <div className="w-8 h-8 bg-blue-primary rounded flex items-center justify-center">
-                      <span className="text-white font-bold text-sm">B</span>
-                    </div>
-                    <span className="font-semibold text-foreground">Business Name</span>
-                  </div>
-                  <CardTitle className="text-xl">Pay for Consulting Service</CardTitle>
-                  <p className="text-muted-foreground text-sm">60-minute strategy session</p>
-                </CardHeader>
-                <CardContent className="p-6">
-                  <div className="bg-muted/50 rounded-lg p-4 mb-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm text-muted-foreground">Amount Due</span>
-                      <span className="text-2xl font-bold text-foreground">$150.00</span>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-3 mb-4">
-                    <div className="flex items-center gap-2 text-sm text-foreground">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      <span>Secure payment</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-foreground">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      <span>Instant confirmation</span>
-                    </div>
-                  </div>
-                  
-                  <Button className="w-full" size="lg">Pay Now</Button>
-                  
-                  <p className="text-xs text-muted-foreground text-center mt-3">
-                    Powered by Nardopay
-                  </p>
-                </CardContent>
-              </Card>
+              <CheckoutPreview
+                businessName="NardoPay Consulting"
+                headerGradient="linear-gradient(135deg, #0EA5E9, #0284C7)"
+                productName="Consultation Payment"
+                productDescription="60-minute strategy session"
+                amount="USD 150.00"
+                imageUrl="https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&q=80&w=1600"
+              />
             </div>
           </div>
         </div>

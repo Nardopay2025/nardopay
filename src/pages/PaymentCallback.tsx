@@ -149,16 +149,16 @@ export default function PaymentCallback() {
                 </div>
                 
                 {/* Show custom thank you message if configured */}
-                {(transaction.metadata as any)?.thank_you_message && (
+                {transaction.metadata && typeof transaction.metadata === 'object' && 'thank_you_message' in transaction.metadata && transaction.metadata.thank_you_message && (
                   <div className="mt-4 p-4 bg-primary/10 rounded-lg">
                     <p className="text-sm text-primary font-medium">
-                      {(transaction.metadata as any).thank_you_message}
+                      {String(transaction.metadata.thank_you_message)}
                     </p>
                   </div>
                 )}
                 
                 {/* Show redirect notice if configured */}
-                {(transaction.metadata as any)?.redirect_url && (
+                {transaction.metadata && typeof transaction.metadata === 'object' && 'redirect_url' in transaction.metadata && transaction.metadata.redirect_url && (
                   <p className="text-sm text-muted-foreground mt-4">
                     Redirecting you shortly...
                   </p>

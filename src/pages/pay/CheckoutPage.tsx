@@ -1,14 +1,23 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { PaymentMethodSelector } from '@/components/checkout/PaymentMethodSelector';
 import { PaymentDetailsForm } from '@/components/checkout/PaymentDetailsForm';
 import { processPayment, PaymentMethod, LinkType } from '@/lib/paymentRouter';
 import { z } from 'zod';
+
+type LinkData = 
+  | Database['public']['Tables']['payment_links']['Row']
+  | Database['public']['Tables']['donation_links']['Row']
+  | Database['public']['Tables']['catalogues']['Row']
+  | Database['public']['Tables']['subscription_links']['Row'];
 
 // Input validation schemas
 const customerDetailsSchema = z.object({
@@ -37,12 +46,13 @@ export default function CheckoutPage() {
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
-  const [linkData, setLinkData] = useState<any>(null);
+  const [linkData, setLinkData] = useState<LinkData | null>(null);
   const [invoiceSettings, setInvoiceSettings] = useState<any>(null);
   const [merchantCountry, setMerchantCountry] = useState<string>('KE');
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
   const [processing, setProcessing] = useState(false);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+  const [donationPhone, setDonationPhone] = useState<string>('');
 
   // Get and validate customer details from URL params
   const rawCustomerName = searchParams.get('name') || '';
@@ -104,14 +114,45 @@ export default function CheckoutPage() {
           throw new Error('Invalid link type');
       }
 
-      const { data: linkDataResult, error } = await supabase
-        .from(tableName as any)
-        .select('*')
-        .eq('link_code', linkCode)
-        .limit(1)
-        .single();
+      let linkDataResult: LinkData | null = null;
 
-      if (error) throw error;
+      if (tableName === 'payment_links') {
+        const { data, error } = await supabase
+          .from('payment_links')
+          .select('*')
+          .eq('link_code', linkCode)
+          .limit(1)
+          .single();
+        if (error) throw error;
+        linkDataResult = data;
+      } else if (tableName === 'donation_links') {
+        const { data, error } = await supabase
+          .from('donation_links')
+          .select('*')
+          .eq('link_code', linkCode)
+          .limit(1)
+          .single();
+        if (error) throw error;
+        linkDataResult = data;
+      } else if (tableName === 'catalogues') {
+        const { data, error } = await supabase
+          .from('catalogues')
+          .select('*')
+          .eq('link_code', linkCode)
+          .limit(1)
+          .single();
+        if (error) throw error;
+        linkDataResult = data;
+      } else if (tableName === 'subscription_links') {
+        const { data, error } = await supabase
+          .from('subscription_links')
+          .select('*')
+          .eq('link_code', linkCode)
+          .limit(1)
+          .single();
+        if (error) throw error;
+        linkDataResult = data;
+      }
 
       if (!linkDataResult) {
         navigate('/404');
@@ -121,7 +162,7 @@ export default function CheckoutPage() {
       setLinkData(linkDataResult);
 
       // Fetch merchant profile for branding and country (using safe_profiles view)
-      const userId = (linkDataResult as any).user_id;
+      const userId = linkDataResult.user_id;
       if (userId) {
         const { data: profileData } = await supabase
           .from('safe_profiles')
@@ -162,8 +203,8 @@ export default function CheckoutPage() {
       }
       return amount;
     }
-    if (linkData?.amount) {
-      return parseFloat(linkData.amount);
+    if (linkData && 'amount' in linkData && (linkData as any).amount) {
+      return parseFloat((linkData as any).amount as any);
     }
     return 0;
   };
@@ -172,6 +213,27 @@ export default function CheckoutPage() {
     // Validate customer inputs before processing
     if (!validateCustomerInputs()) {
       return;
+    }
+
+    // Additional validation for donation phone number
+    if (linkType === 'donate') {
+      const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+      if (!donationPhone || !phoneRegex.test(donationPhone)) {
+        toast({
+          title: 'Invalid Phone Number',
+          description: 'Enter a valid mobile number with country code (e.g., +254712345678)',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (!donationAmount || isNaN(parseFloat(donationAmount)) || parseFloat(donationAmount) <= 0) {
+        toast({
+          title: 'Invalid Amount',
+          description: 'Donation amount must be greater than 0',
+          variant: 'destructive',
+        });
+        return;
+      }
     }
 
     // Validate phone number format (basic validation)
@@ -209,21 +271,21 @@ export default function CheckoutPage() {
       const result = await processPayment({
         linkType: routerLinkType,
         linkCode: linkCode!,
-        paymentMethod: selectedMethod!,
+        paymentMethod: linkType === 'donate' ? 'mobile_money' : selectedMethod!,
         merchantCountry,
         customerDetails: {
           name: customerName,
           email: customerEmail,
-          phone: paymentDetails.phoneNumber,
+          phone: linkType === 'donate' ? donationPhone : paymentDetails.phoneNumber,
         },
         donationAmount: linkType === 'donate' ? donationAmount : undefined,
-        cardDetails: paymentDetails.cardDetails,
+        cardDetails: linkType === 'donate' ? undefined : paymentDetails.cardDetails,
       });
 
       if (result.success && result.redirect_url) {
         setPaymentUrl(result.redirect_url);
       } else {
-        throw new Error(result.error || 'Payment failed');
+        throw new Error(result.error || 'Payment failed: No redirect URL returned by provider');
       }
     } catch (error: any) {
       console.error('Payment error:', error);
@@ -274,58 +336,43 @@ export default function CheckoutPage() {
   // Show payment iframe if we have the URL
   if (paymentUrl) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background to-muted">
+      <div
+        className="min-h-screen w-full flex"
+        style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
+      >
+        {/* Left branding panel (hidden on small screens) */}
         <div
-          className="p-6 text-white shadow-xl relative overflow-hidden"
+          className="hidden lg:flex w-1/5 xl:w-1/4 items-center justify-center text-white"
           style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
         >
-          <div className="max-w-7xl mx-auto">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                {invoiceSettings?.logo_url ? (
-                  <img
-                    src={invoiceSettings.logo_url}
-                    alt={businessName}
-                    className="h-12 object-contain bg-white/10 backdrop-blur-sm rounded-lg p-2"
-                  />
-                ) : (
-                  <h1 className="text-2xl font-bold">{businessName}</h1>
-                )}
-              </div>
-              <div className="text-right">
-                <div className="text-white/80 text-sm mb-1">
-                  Payment #{linkCode?.slice(0, 8).toUpperCase()}
-                </div>
-                <div className="text-2xl font-bold">
-                  {currency} {amount.toFixed(2)}
-                </div>
-              </div>
-            </div>
+          <div className="p-6 text-center">
+            {invoiceSettings?.logo_url ? (
+              <img src={invoiceSettings.logo_url} alt={businessName} className="mx-auto h-14 object-contain mb-4" />
+            ) : (
+              <div className="text-2xl font-bold mb-2">{businessName}</div>
+            )}
+            <div className="text-white/80 text-sm">Payment #{linkCode?.slice(0, 8).toUpperCase()}</div>
+            <div className="text-2xl font-bold mt-2">{currency} {amount.toFixed(2)}</div>
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto p-6">
-          <div className="bg-card rounded-xl shadow-2xl overflow-hidden border border-border">
-            <div className="bg-muted/50 px-6 py-3 border-b border-border flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path
-                    fillRule="evenodd"
-                    d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                Powered by NardoPay
-              </div>
-              <div className="text-xs text-muted-foreground">Encrypted & Secure Payment</div>
-            </div>
+        {/* Center content: full-height iframe */}
+        <div className="flex-1 min-w-0">
+          <iframe
+            src={paymentUrl}
+            title="Secure Payment Gateway"
+            className="w-full h-screen border-0 bg-background"
+          />
+        </div>
 
-            <iframe
-              src={paymentUrl}
-              className="w-full border-0 bg-background"
-              style={{ height: 'calc(100vh - 280px)', minHeight: '500px' }}
-              title="Secure Payment Gateway"
-            />
+        {/* Right branding panel (hidden on small screens) */}
+        <div
+          className="hidden lg:flex w-1/5 xl:w-1/4 items-center justify-center text-white"
+          style={{ background: `linear-gradient(135deg, ${secondaryColor}, ${primaryColor})` }}
+        >
+          <div className="p-6 text-center">
+            <div className="text-xs uppercase tracking-wide text-white/80 mb-2">Secured by</div>
+            <div className="text-lg font-semibold">NardoPay</div>
           </div>
         </div>
       </div>
@@ -374,39 +421,96 @@ export default function CheckoutPage() {
 
           {/* Body */}
           <div className="p-8 space-y-8">
-            {/* Payment Method Selection */}
-            {!selectedMethod && (
-              <PaymentMethodSelector
-                selectedMethod={selectedMethod}
-                onSelectMethod={setSelectedMethod}
-                merchantCountry={merchantCountry}
-                primaryColor={primaryColor}
-              />
-            )}
-
-            {/* Payment Details Form */}
-            {selectedMethod && (
+            {linkType === 'donate' ? (
               <div className="space-y-6">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedMethod(null)}
-                  className="mb-4"
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Change payment method
-                </Button>
+                <div className="rounded-xl bg-foreground/5 dark:bg-white/5 p-6 border border-border">
+                  <div className="text-foreground font-semibold mb-4">Donation Summary</div>
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <div className="text-sm text-muted-foreground">Donor</div>
+                      <div className="text-lg font-semibold">{customerName}</div>
+                      <div className="text-xs text-muted-foreground">{customerEmail}</div>
+                    </div>
+                    <div className="text-xl font-bold">
+                      {currency} {amount.toFixed(2)}
+                    </div>
+                  </div>
+                </div>
 
-                <PaymentDetailsForm
-                  paymentMethod={selectedMethod}
-                  amount={amount}
-                  currency={currency}
-                  onSubmit={handlePaymentSubmit}
-                  processing={processing}
-                  primaryColor={primaryColor}
-                  secondaryColor={secondaryColor}
-                />
+                <div>
+                  <Label htmlFor="donation-phone">Mobile Number (for Mobile Money)</Label>
+                  <Input
+                    id="donation-phone"
+                    type="tel"
+                    value={donationPhone}
+                    onChange={(e) => setDonationPhone(e.target.value)}
+                    placeholder="+27123456789"
+                    className="bg-background"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Include country code (e.g., +27123456789)</p>
+                </div>
+
+                <div>
+                  <Button
+                    onClick={() => handlePaymentSubmit({})}
+                    disabled={processing || !donationPhone}
+                    className="w-full text-white border-0 hover:opacity-90 transition-opacity disabled:opacity-50"
+                    size="lg"
+                    style={{
+                      background:
+                        processing || !donationPhone
+                          ? `${primaryColor}80`
+                          : `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
+                    }}
+                  >
+                    {processing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      `Donate ${currency} ${amount.toFixed(2)}`
+                    )}
+                  </Button>
+                </div>
               </div>
+            ) : (
+              <>
+                {/* Payment Method Selection */}
+                {!selectedMethod && (
+                  <PaymentMethodSelector
+                    selectedMethod={selectedMethod}
+                    onSelectMethod={setSelectedMethod}
+                    merchantCountry={merchantCountry}
+                    primaryColor={primaryColor}
+                  />
+                )}
+
+                {/* Payment Details Form */}
+                {selectedMethod && (
+                  <div className="space-y-6">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedMethod(null)}
+                      className="mb-4"
+                    >
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Change payment method
+                    </Button>
+
+                    <PaymentDetailsForm
+                      paymentMethod={selectedMethod}
+                      amount={amount}
+                      currency={currency}
+                      onSubmit={handlePaymentSubmit}
+                      processing={processing}
+                      primaryColor={primaryColor}
+                      secondaryColor={secondaryColor}
+                    />
+                  </div>
+                )}
+              </>
             )}
           </div>
         </Card>

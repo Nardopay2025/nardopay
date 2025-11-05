@@ -100,7 +100,8 @@ function formatForPesapal(request: PaymentRequest): any {
 
   // Add donation amount for donation links
   if (linkType === 'donation' && donationAmount) {
-    payload.donationAmount = donationAmount;
+    const amountNum = typeof donationAmount === 'string' ? parseFloat(donationAmount) : donationAmount;
+    payload.donationAmount = amountNum;
   }
 
   // Add cart items for catalogue links
