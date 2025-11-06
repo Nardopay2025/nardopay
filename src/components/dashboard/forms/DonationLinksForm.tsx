@@ -90,6 +90,39 @@ export const DonationLinksForm = ({ onSuccess }: DonationLinksFormProps) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      // Check user's country
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('country, email')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) throw profileError;
+
+      // Only allow link creation for Zimbabwe users
+      if (profile?.country !== 'ZW') {
+        // Send notification email
+        try {
+          await supabase.functions.invoke('send-payment-emails', {
+            body: {
+              type: 'service-notification',
+              to: profile?.email || user.email,
+              message: 'We noticed you tried to create a donation link. Our service is currently available in Zimbabwe. We\'ll notify you via email when it becomes available in your country.',
+            },
+          });
+        } catch (emailError) {
+          console.error('Failed to send notification email:', emailError);
+        }
+
+        toast({
+          title: 'Service Not Available',
+          description: 'Our service is currently only available in Zimbabwe. We\'ll notify you via email when it becomes available in your country.',
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
+      }
+
       const { error } = await supabase.from('donation_links').insert({
         user_id: user.id,
         title: formData.title,

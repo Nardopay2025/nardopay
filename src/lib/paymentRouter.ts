@@ -39,6 +39,43 @@ interface PaymentResponse {
   error?: string;
 }
 
+/**
+ * Infer ISO-3166-1 alpha-2 country code from an E.164 phone number.
+ * Only maps the regions we support; returns undefined if unknown.
+ */
+function getCountryFromPhone(e164Phone?: string): string | undefined {
+  if (!e164Phone) return undefined;
+  const normalized = e164Phone.replace(/\s|-/g, '');
+  // Early exit if it doesn't look like a +countrycode number
+  if (!/^\+\d{6,15}$/.test(normalized)) return undefined;
+
+  // Common African and supported markets mapping
+  const prefixToIso2: Array<[RegExp, string]> = [
+    [/^\+263/, 'ZW'], // Zimbabwe
+    [/^\+250/, 'RW'], // Rwanda
+    [/^\+254/, 'KE'], // Kenya
+    [/^\+256/, 'UG'], // Uganda
+    [/^\+255/, 'TZ'], // Tanzania
+    [/^\+265/, 'MW'], // Malawi
+    [/^\+260/, 'ZM'], // Zambia
+    [/^\+267/, 'BW'], // Botswana
+    [/^\+27(?!\d{0}$)/, 'ZA'], // South Africa
+    [/^\+233/, 'GH'], // Ghana
+    [/^\+234/, 'NG'], // Nigeria
+    // Add more as needed
+  ];
+
+  for (const [re, iso] of prefixToIso2) {
+    if (re.test(normalized)) return iso;
+  }
+  return undefined;
+}
+
+function getEffectiveCountry(request: PaymentRequest): string {
+  const inferred = getCountryFromPhone(request.customerDetails?.phone);
+  return inferred || request.merchantCountry;
+}
+
 // Paymentology supported countries (global virtual card provider)
 const PAYMENTOLOGY_COUNTRIES = [
   'US', 'GB', 'DE', 'FR', 'IT', 'ES', 'NL', 'BE', 'AT', 'PT', 'IE', 'ZA', 
@@ -47,28 +84,40 @@ const PAYMENTOLOGY_COUNTRIES = [
 
 // Pesapal supported countries (East African markets + select regions)
 const PESAPAL_COUNTRIES = [
-  'KE', 'UG', 'TZ', 'RW', 'MW', 'ZM', 'ZW', 'BW',
+  'KE', 'UG', 'TZ', 'RW', 'MW', 'ZM', 'BW',
+];
+
+// Pesepay supported countries (Zimbabwe)
+const PESEPAY_COUNTRIES = [
+  'ZW',
 ];
 
 /**
  * Smart payment routing - determines which payment provider to use
  */
 function selectProvider(request: PaymentRequest): string {
-  const { paymentMethod, merchantCountry } = request;
+  const { paymentMethod } = request;
+  const effectiveCountry = getEffectiveCountry(request);
   
   // Card payments via Paymentology (global coverage)
-  if (paymentMethod === 'card' && PAYMENTOLOGY_COUNTRIES.includes(merchantCountry)) {
+  if (paymentMethod === 'card' && PAYMENTOLOGY_COUNTRIES.includes(effectiveCountry)) {
     return 'paymentology';
+  }
+  
+  // Mobile Money and Bank Transfer via Pesepay for Zimbabwe
+  if ((paymentMethod === 'mobile_money' || paymentMethod === 'bank_transfer') 
+      && PESEPAY_COUNTRIES.includes(effectiveCountry)) {
+    return 'pesepay';
   }
   
   // Mobile Money and Bank Transfer via Pesapal (only for supported countries)
   if ((paymentMethod === 'mobile_money' || paymentMethod === 'bank_transfer') 
-      && PESAPAL_COUNTRIES.includes(merchantCountry)) {
+      && PESAPAL_COUNTRIES.includes(effectiveCountry)) {
     return 'pesapal';
   }
   
   // Unsupported combination
-  throw new Error(`COUNTRY_NOT_SUPPORTED: ${paymentMethod} payments are not available in ${merchantCountry}. Please use an alternative payment method.`);
+  throw new Error(`COUNTRY_NOT_SUPPORTED: ${paymentMethod} payments are not available in ${effectiveCountry}. Please use an alternative payment method.`);
 }
 
 /**
@@ -79,7 +128,7 @@ export function isPaymentMethodSupported(paymentMethod: PaymentMethod, country: 
     return PAYMENTOLOGY_COUNTRIES.includes(country);
   }
   if (paymentMethod === 'mobile_money' || paymentMethod === 'bank_transfer') {
-    return PESAPAL_COUNTRIES.includes(country);
+    return PESAPAL_COUNTRIES.includes(country) || PESEPAY_COUNTRIES.includes(country);
   }
   return false;
 }
@@ -88,6 +137,34 @@ export function isPaymentMethodSupported(paymentMethod: PaymentMethod, country: 
  * Format payment data for Pesapal provider
  */
 function formatForPesapal(request: PaymentRequest): any {
+  const { linkCode, linkType, customerDetails, donationAmount, cartItems } = request;
+  
+  const payload: any = {
+    linkCode,
+    linkType,
+    payerName: customerDetails.name,
+    payerEmail: customerDetails.email,
+    paymentMethod: request.paymentMethod === 'mobile_money' ? 'mobile' : 'bank',
+  };
+
+  // Add donation amount for donation links
+  if (linkType === 'donation' && donationAmount) {
+    const amountNum = typeof donationAmount === 'string' ? parseFloat(donationAmount) : donationAmount;
+    payload.donationAmount = amountNum;
+  }
+
+  // Add cart items for catalogue links
+  if (linkType === 'catalogue' && cartItems) {
+    payload.cartItems = cartItems;
+  }
+
+  return payload;
+}
+
+/**
+ * Format payment data for Pesepay provider
+ */
+function formatForPesepay(request: PaymentRequest): any {
   const { linkCode, linkType, customerDetails, donationAmount, cartItems } = request;
   
   const payload: any = {
@@ -181,6 +258,11 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
         edgeFunction = 'pesapal-submit-order';
         break;
 
+      case 'pesepay':
+        providerData = formatForPesepay(request);
+        edgeFunction = 'pesepay-submit-order';
+        break;
+
       case 'paymentology':
         providerData = formatForPaymentology(request);
         edgeFunction = 'paymentology-accept-payment';
@@ -248,7 +330,7 @@ export function mapPaymentMethodForProvider(
   paymentMethod: PaymentMethod,
   provider: string
 ): string {
-  if (provider === 'pesapal') {
+  if (provider === 'pesapal' || provider === 'pesepay') {
     return paymentMethod === 'mobile_money' ? 'mobile' : 'bank';
   }
   

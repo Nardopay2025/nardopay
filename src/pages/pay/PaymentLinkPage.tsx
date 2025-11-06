@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { processPayment } from '@/lib/paymentRouter';
+import { getCurrencyForCountry } from '@/lib/countries';
 
 export default function PaymentLinkPage() {
   const { linkCode } = useParams();
@@ -22,6 +23,10 @@ export default function PaymentLinkPage() {
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [processing, setProcessing] = useState(false);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+  const [customerCountry, setCustomerCountry] = useState<string | null>(null);
+  const [displayCurrency, setDisplayCurrency] = useState<string | null>(null);
+  const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
+  const [fxLoading, setFxLoading] = useState<boolean>(false);
 
   useEffect(() => {
     if (linkCode) {
@@ -86,6 +91,44 @@ export default function PaymentLinkPage() {
           primary_color: '#0EA5E9',
           secondary_color: '#0284C7',
         });
+      }
+
+      // Detect customer country via IP and set display currency
+      try {
+        const ipRes = await fetch('https://ipapi.co/json');
+        if (ipRes.ok) {
+          const ipData = await ipRes.json();
+          const ipCountry = ipData?.country || null; // ISO2
+          setCustomerCountry(ipCountry);
+          const localCurrency = getCurrencyForCountry(ipCountry || '');
+          if (localCurrency && row?.currency && localCurrency !== row.currency) {
+            setFxLoading(true);
+            const { data: fxData, error: fxError } = await supabase.functions.invoke('get-exchange-rate', {
+              body: { fromCurrency: row.currency, toCurrency: localCurrency },
+            });
+            if (!fxError && fxData?.rate) {
+              const rate = Number(fxData.rate);
+              if (!Number.isNaN(rate) && Number(row.amount)) {
+                setDisplayCurrency(localCurrency);
+                setConvertedAmount(parseFloat(row.amount) * rate);
+              }
+            } else {
+              setDisplayCurrency(row.currency);
+              setConvertedAmount(parseFloat(row.amount));
+            }
+          } else {
+            setDisplayCurrency(row.currency);
+            setConvertedAmount(parseFloat(row.amount));
+          }
+        } else {
+          setDisplayCurrency(row.currency);
+          setConvertedAmount(parseFloat(row.amount));
+        }
+      } catch {
+        setDisplayCurrency(row.currency);
+        setConvertedAmount(parseFloat(row.amount));
+      } finally {
+        setFxLoading(false);
       }
     } catch (error: any) {
       console.error('Error fetching payment link:', error);
@@ -173,6 +216,8 @@ export default function PaymentLinkPage() {
   const primaryColor = invoiceSettings?.primary_color || '#0EA5E9';
   const secondaryColor = invoiceSettings?.secondary_color || '#0284C7';
   const businessName = invoiceSettings?.business_name || 'Business';
+  const amountCurrency = displayCurrency || paymentLink?.currency;
+  const amountValue = convertedAmount ?? (paymentLink ? parseFloat(paymentLink.amount) : 0);
 
   // Show payment iframe if we have the URL
   if (paymentUrl) {
@@ -193,7 +238,7 @@ export default function PaymentLinkPage() {
               <div className="text-2xl font-bold mb-2">{businessName}</div>
             )}
             <div className="text-white/80 text-sm">Payment #{linkCode?.slice(0, 8).toUpperCase()}</div>
-            <div className="text-2xl font-bold mt-2">{paymentLink.currency} {parseFloat(paymentLink.amount).toFixed(2)}</div>
+            <div className="text-2xl font-bold mt-2">{amountCurrency} {amountValue.toFixed(2)}</div>
           </div>
         </div>
 
@@ -296,7 +341,7 @@ export default function PaymentLinkPage() {
                   </div>
                   <div className="flex items-center justify-between pt-4 mt-4 border-t border-border">
                     <span className="text-muted-foreground">Total</span>
-                    <span className="text-xl font-bold">{paymentLink.currency} {parseFloat(paymentLink.amount).toFixed(2)}</span>
+                  <span className="text-xl font-bold">{amountCurrency} {amountValue.toFixed(2)}{fxLoading ? ' …' : ''}</span>
                   </div>
                 </div>
 
@@ -363,7 +408,7 @@ export default function PaymentLinkPage() {
                         Processing...
                       </>
                     ) : (
-                      `Pay ${paymentLink.currency} ${parseFloat(paymentLink.amount).toFixed(2)}`
+                      `Pay ${amountCurrency} ${amountValue.toFixed(2)}`
                     )}
                   </Button>
                 </div>

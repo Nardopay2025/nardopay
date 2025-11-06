@@ -217,10 +217,20 @@ export default function PaymentProvidersSettings() {
         description: "Please wait...",
       });
 
-      const ipnUrl = 'https://mczqwqsvumfsneoknlep.supabase.co/functions/v1/pesapal-ipn';
+      // Get Supabase URL from client - extract project ID
+      // Extract from the supabase client instance URL
+      const supabaseUrl = (supabase as any).supabaseUrl || import.meta.env.VITE_SUPABASE_URL || 'https://mczqwqsvumfsneoknlep.supabase.co';
+      const projectId = supabaseUrl.replace('https://', '').split('.')[0];
       
-      // Call edge function with only configId - credentials fetched server-side
-      const { data, error } = await supabase.functions.invoke('pesapal-register-ipn', {
+      // Determine IPN URL based on provider
+      const ipnUrl = config.provider === 'pesepay'
+        ? `https://${projectId}.supabase.co/functions/v1/pesepay-ipn`
+        : `https://${projectId}.supabase.co/functions/v1/pesapal-ipn`;
+      
+      // Call appropriate edge function based on provider
+      const edgeFunction = config.provider === 'pesepay' ? 'pesepay-register-ipn' : 'pesapal-register-ipn';
+      
+      const { data, error } = await supabase.functions.invoke(edgeFunction, {
         body: {
           configId: config.id,
           ipnUrl,
@@ -282,6 +292,7 @@ export default function PaymentProvidersSettings() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="pesapal">Pesapal</SelectItem>
+                      <SelectItem value="pesepay">Pesepay</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -430,7 +441,8 @@ export default function PaymentProvidersSettings() {
                           variant="outline"
                           size="sm"
                           onClick={() => registerIPN(config)}
-                          title={config.ipn_id ? "Re-register IPN with Pesapal" : "Register IPN with Pesapal"}
+                          title={config.ipn_id ? `Re-register IPN with ${config.provider}` : `Register IPN with ${config.provider}`}
+                          disabled={config.provider !== 'pesapal' && config.provider !== 'pesepay'}
                         >
                           <RefreshCw className="h-4 w-4" />
                         </Button>

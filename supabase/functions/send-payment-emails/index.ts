@@ -5,6 +5,7 @@ import { MerchantNotification } from './_templates/merchant-notification.tsx'
 import { CustomerReceipt } from './_templates/customer-receipt.tsx'
 import { WithdrawalInitiated } from './_templates/withdrawal-initiated.tsx'
 import { WithdrawalStatus } from './_templates/withdrawal-status.tsx'
+import { ServiceNotification } from './_templates/service-notification.tsx'
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string)
 
@@ -137,6 +138,18 @@ Deno.serve(async (req) => {
           accountDetails,
           reference,
           failureReason,
+        })
+      )
+    } else if (type === 'service-notification') {
+      const {
+        message,
+      } = payload
+
+      subject = 'NardoPay Service Availability Update'
+      
+      html = await renderAsync(
+        React.createElement(ServiceNotification, {
+          message,
         })
       )
     } else {
