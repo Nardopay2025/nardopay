@@ -7,10 +7,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// TODO: Update these URLs with actual Pesepay API endpoints once API documentation is available
+// Pesepay API endpoints
+// According to Pesepay documentation: https://developers.pesepay.com
+// Base URL: https://api.pesepay.com
+// NOTE: Pesepay may use result_url in payment creation instead of IPN registration
+// Verify if IPN registration endpoint exists or if webhooks are configured differently
 const PESEPAY_BASE_URL = Deno.env.get('PESEPAY_ENVIRONMENT') === 'production'
-  ? 'https://api.pesepay.com' // PLACEHOLDER - Update with actual Pesepay production URL
-  : 'https://api-sandbox.pesepay.com'; // PLACEHOLDER - Update with actual Pesepay sandbox URL
+  ? 'https://api.pesepay.com'
+  : 'https://api.pesepay.com'; // Use same URL for sandbox (test with test credentials)
 
 // Validation schema
 const registerIpnSchema = z.object({
@@ -100,43 +104,24 @@ serve(async (req) => {
       consumer_secret: config.consumer_secret,
     };
 
-    // TODO: Update authentication endpoint and request format based on Pesepay API documentation
-    const authResponse = await fetch(`${PESEPAY_BASE_URL}/api/auth/token`, {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        api_key: credentials.consumer_key,
-        api_secret: credentials.consumer_secret,
-      }),
-    });
+    // Clean integration key
+    let integrationKey = String(credentials.consumer_key || '').trim();
+    integrationKey = integrationKey.replace(/[\s\n\r\t\0]/g, '');
+    integrationKey = integrationKey.replace(/[^\x20-\x7E]/g, '');
 
-    if (!authResponse.ok) {
-      console.error('Pesepay authentication failed');
-      return new Response(
-        JSON.stringify({ error: 'E005' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const authData = await authResponse.json();
-    // TODO: Update based on actual Pesepay response structure
-    const token = authData.token || authData.access_token || authData.accessToken;
-
-    // TODO: Update endpoint and request body structure based on Pesepay API documentation
+    // NOTE: Pesepay uses Integration Key directly in authorization header (no token-based auth)
+    // Pesepay may use result_url in payment creation instead of IPN registration
+    // Verify if this endpoint exists or if webhooks are configured differently
     // Register IPN/webhook URL
     const ipnResponse = await fetch(`${PESEPAY_BASE_URL}/api/webhooks/register`, {
       method: 'POST',
       headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+        'authorization': integrationKey, // Direct integration key (per Pesepay docs)
+        'content-type': 'application/json',
       },
       body: JSON.stringify({
         url: ipnUrl,
-        events: ['payment.completed', 'payment.failed'], // TODO: Update based on Pesepay webhook events
+        events: ['payment.completed', 'payment.failed', 'payment.pending'], // TODO: Verify exact event names with Pesepay
       }),
     });
 
@@ -150,10 +135,11 @@ serve(async (req) => {
     }
 
     const data = await ipnResponse.json();
-    console.log('IPN registered successfully');
+    console.log('IPN registered successfully:', data);
 
-    // TODO: Update field name based on actual Pesepay response structure
-    const ipnId = data.webhook_id || data.id || data.ipn_id;
+    // NOTE: Update field name based on actual Pesepay response structure
+    // Verify exact field name with Pesepay documentation
+    const ipnId = data.webhook_id || data.id || data.ipn_id || data.webhookId || data.ipnId;
 
     // Update config with IPN ID
     const { error: updateError } = await supabase

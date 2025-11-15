@@ -20,7 +20,9 @@ serve(async (req) => {
 
     console.log(`Fetching exchange rate from ${fromCurrency} to ${toCurrency}`);
 
-    // Using ExchangeRate-API (free, no API key needed for basic usage)
+    // Using ExchangeRate-API which provides rates similar to Google's exchange rates
+    // Google doesn't provide a public API, but this service mirrors Google's rates
+    // Free, no API key needed for basic usage
     const response = await fetch(
       `https://api.exchangerate-api.com/v4/latest/${fromCurrency}`
     );

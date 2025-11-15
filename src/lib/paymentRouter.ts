@@ -31,6 +31,9 @@ interface PaymentRequest {
     cvv: string;
     cardholderName?: string;
   };
+  // Currency conversion for cross-border payments (e.g., RWF -> USD for ZW clients)
+  convertedAmount?: number;
+  convertedCurrency?: string;
 }
 
 interface PaymentResponse {
@@ -87,13 +90,19 @@ const PESAPAL_COUNTRIES = [
   'KE', 'UG', 'TZ', 'RW', 'MW', 'ZM', 'BW',
 ];
 
-// Pesepay supported countries (Zimbabwe)
+// Pesepay is for Zimbabwe payments only
+// NOTE: NardoPay is the merchant with Pesepay (in Zimbabwe)
+// NardoPay acts as aggregator - any merchant can use Pesepay through NardoPay
+// The merchant's country doesn't matter - we always use ZW credentials
 const PESEPAY_COUNTRIES = [
-  'ZW',
+  'ZW', // Zimbabwe - where Pesepay operates
 ];
 
 /**
  * Smart payment routing - determines which payment provider to use
+ * 
+ * NOTE: For Pesepay, merchant country doesn't matter - NardoPay (ZW) is the merchant with Pesepay
+ * Any merchant can use Pesepay through NardoPay to access Zimbabwe markets
  */
 function selectProvider(request: PaymentRequest): string {
   const { paymentMethod } = request;
@@ -104,16 +113,24 @@ function selectProvider(request: PaymentRequest): string {
     return 'paymentology';
   }
   
-  // Mobile Money and Bank Transfer via Pesepay for Zimbabwe
-  if ((paymentMethod === 'mobile_money' || paymentMethod === 'bank_transfer') 
-      && PESEPAY_COUNTRIES.includes(effectiveCountry)) {
+  // Mobile Money and Bank Transfer routing
+  if (paymentMethod === 'mobile_money' || paymentMethod === 'bank_transfer') {
+    // Pesepay is for Zimbabwe customers/payments only
+    // NardoPay (in ZW) is the merchant with Pesepay, acting as aggregator
+    // Any merchant can use Pesepay through NardoPay to access Zimbabwe markets
+    // Merchant's country doesn't matter - we always use NardoPay's ZW credentials
+    if (effectiveCountry === 'ZW') {
+      return 'pesepay'; // Zimbabwe customers use Pesepay
+    }
+    
+    // For other countries, use Pesapal if available
+    if (PESAPAL_COUNTRIES.includes(effectiveCountry)) {
+      return 'pesapal';
+    }
+    
+    // If Pesapal not available for this country, fallback to Pesepay
+    // (NardoPay aggregates - allows access to Zimbabwe market)
     return 'pesepay';
-  }
-  
-  // Mobile Money and Bank Transfer via Pesapal (only for supported countries)
-  if ((paymentMethod === 'mobile_money' || paymentMethod === 'bank_transfer') 
-      && PESAPAL_COUNTRIES.includes(effectiveCountry)) {
-    return 'pesapal';
   }
   
   // Unsupported combination
@@ -122,13 +139,18 @@ function selectProvider(request: PaymentRequest): string {
 
 /**
  * Check if a payment method is supported in a given country
+ * 
+ * NOTE: Pesepay is always available (NardoPay aggregates for Zimbabwe market)
+ * regardless of merchant country
  */
 export function isPaymentMethodSupported(paymentMethod: PaymentMethod, country: string): boolean {
   if (paymentMethod === 'card') {
     return PAYMENTOLOGY_COUNTRIES.includes(country);
   }
   if (paymentMethod === 'mobile_money' || paymentMethod === 'bank_transfer') {
-    return PESAPAL_COUNTRIES.includes(country) || PESEPAY_COUNTRIES.includes(country);
+    // Pesepay is always available (NardoPay aggregates for ZW market)
+    // Pesapal is available for supported countries
+    return PESAPAL_COUNTRIES.includes(country) || true; // Pesepay always available
   }
   return false;
 }
@@ -165,7 +187,7 @@ function formatForPesapal(request: PaymentRequest): any {
  * Format payment data for Pesepay provider
  */
 function formatForPesepay(request: PaymentRequest): any {
-  const { linkCode, linkType, customerDetails, donationAmount, cartItems } = request;
+  const { linkCode, linkType, customerDetails, donationAmount, cartItems, convertedAmount, convertedCurrency } = request;
   
   const payload: any = {
     linkCode,
@@ -174,6 +196,12 @@ function formatForPesepay(request: PaymentRequest): any {
     payerEmail: customerDetails.email,
     paymentMethod: request.paymentMethod === 'mobile_money' ? 'mobile' : 'bank',
   };
+
+  // Add converted amount/currency if provided (e.g., RWF -> USD for ZW clients)
+  if (convertedAmount && convertedCurrency) {
+    payload.convertedAmount = convertedAmount;
+    payload.convertedCurrency = convertedCurrency;
+  }
 
   // Add donation amount for donation links
   if (linkType === 'donation' && donationAmount) {

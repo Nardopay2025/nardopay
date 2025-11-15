@@ -14,7 +14,6 @@ enabled = true
 site_url = "http://localhost:5173"
 additional_redirect_urls = ["https://localhost:5173"]
 enable_signup = true
-enable_email_confirmations = false
 
 [auth.email]
 enable_signup = true
@@ -22,7 +21,7 @@ double_confirm_changes = true
 enable_confirmations = false
 
 [auth.hook.send_email]
-enabled = true
+enabled = false
 uri = "https://mczqwqsvumfsneoknlep.supabase.co/functions/v1/send-auth-email"
 
 [functions.send-auth-email]

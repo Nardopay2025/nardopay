@@ -94,39 +94,73 @@ export default function PaymentLinkPage() {
       }
 
       // Detect customer country via IP and set display currency
+      // SPECIAL RULE: If payment link is RWF and customer is in ZW, convert to USD
       try {
         const ipRes = await fetch('https://ipapi.co/json');
         if (ipRes.ok) {
           const ipData = await ipRes.json();
           const ipCountry = ipData?.country || null; // ISO2
           setCustomerCountry(ipCountry);
-          const localCurrency = getCurrencyForCountry(ipCountry || '');
-          if (localCurrency && row?.currency && localCurrency !== row.currency) {
+          
+          // Special rule: RWF payment links opened in Zimbabwe should convert to USD
+          if (ipCountry === 'ZW' && row?.currency === 'RWF') {
             setFxLoading(true);
             const { data: fxData, error: fxError } = await supabase.functions.invoke('get-exchange-rate', {
-              body: { fromCurrency: row.currency, toCurrency: localCurrency },
+              body: { fromCurrency: 'RWF', toCurrency: 'USD' },
             });
             if (!fxError && fxData?.rate) {
               const rate = Number(fxData.rate);
-              if (!Number.isNaN(rate) && Number(row.amount)) {
-                setDisplayCurrency(localCurrency);
-                setConvertedAmount(parseFloat(row.amount) * rate);
+              const amountNum = typeof row.amount === 'string' ? parseFloat(row.amount) : Number(row.amount);
+              if (!Number.isNaN(rate) && !Number.isNaN(amountNum) && amountNum > 0) {
+                setDisplayCurrency('USD');
+                setConvertedAmount(amountNum * rate);
+              } else {
+                setDisplayCurrency(row.currency);
+                setConvertedAmount(amountNum);
               }
             } else {
+              const amountNum = typeof row.amount === 'string' ? parseFloat(row.amount) : Number(row.amount);
               setDisplayCurrency(row.currency);
-              setConvertedAmount(parseFloat(row.amount));
+              setConvertedAmount(amountNum);
             }
           } else {
-            setDisplayCurrency(row.currency);
-            setConvertedAmount(parseFloat(row.amount));
+            // Normal conversion logic for other cases
+            const localCurrency = getCurrencyForCountry(ipCountry || '');
+            if (localCurrency && row?.currency && localCurrency !== row.currency) {
+              setFxLoading(true);
+              const { data: fxData, error: fxError } = await supabase.functions.invoke('get-exchange-rate', {
+                body: { fromCurrency: row.currency, toCurrency: localCurrency },
+              });
+              if (!fxError && fxData?.rate) {
+                const rate = Number(fxData.rate);
+                const amountNum = typeof row.amount === 'string' ? parseFloat(row.amount) : Number(row.amount);
+                if (!Number.isNaN(rate) && !Number.isNaN(amountNum) && amountNum > 0) {
+                  setDisplayCurrency(localCurrency);
+                  setConvertedAmount(amountNum * rate);
+                } else {
+                  setDisplayCurrency(row.currency);
+                  setConvertedAmount(amountNum);
+                }
+              } else {
+                const amountNum = typeof row.amount === 'string' ? parseFloat(row.amount) : Number(row.amount);
+                setDisplayCurrency(row.currency);
+                setConvertedAmount(amountNum);
+              }
+            } else {
+              const amountNum = typeof row.amount === 'string' ? parseFloat(row.amount) : Number(row.amount);
+              setDisplayCurrency(row.currency);
+              setConvertedAmount(amountNum);
+            }
           }
         } else {
+          const amountNum = typeof row.amount === 'string' ? parseFloat(row.amount) : Number(row.amount);
           setDisplayCurrency(row.currency);
-          setConvertedAmount(parseFloat(row.amount));
+          setConvertedAmount(amountNum);
         }
       } catch {
+        const amountNum = typeof row.amount === 'string' ? parseFloat(row.amount) : Number(row.amount);
         setDisplayCurrency(row.currency);
-        setConvertedAmount(parseFloat(row.amount));
+        setConvertedAmount(amountNum);
       } finally {
         setFxLoading(false);
       }
@@ -162,6 +196,9 @@ export default function PaymentLinkPage() {
     setProcessing(true);
 
     try {
+      // If customer is in ZW and payment link is RWF, pass converted USD amount
+      const shouldConvertToUSD = customerCountry === 'ZW' && paymentLink?.currency === 'RWF' && convertedAmount && displayCurrency === 'USD';
+      
       const result = await processPayment({
         linkType: 'payment',
         linkCode: linkCode!,
@@ -172,6 +209,9 @@ export default function PaymentLinkPage() {
           email: payerEmail,
           phone: whatsappNumber,
         },
+        // Pass converted amount if RWF -> USD conversion happened
+        convertedAmount: shouldConvertToUSD ? convertedAmount : undefined,
+        convertedCurrency: shouldConvertToUSD ? 'USD' : undefined,
       });
 
       if (result.success && result.redirect_url) {

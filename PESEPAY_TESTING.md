@@ -141,13 +141,45 @@ curl -X POST https://YOUR_PROJECT.supabase.co/functions/v1/pesepay-submit-order 
 #### Issue 1: Encryption/Decryption Failures
 
 **Symptoms:**
+- Error: "ENCRYPTION_FAILED: ..."
+- Error: "DECRYPTION_FAILED: ..."
 - Error: "Failed to decrypt Pesepay response"
-- Error: "Encryption failed"
+- Error: "Failed to encrypt payload"
 
-**Solution:**
-- Verify Encryption Key is correct
-- Check encryption algorithm matches Pesepay specification
-- Review encryption implementation in `encryptPayload()` and `decryptPayload()`
+**Solutions:**
+
+1. **Verify Encryption Key**
+   - Ensure the Encryption Key in the database matches Pesepay's provided key exactly
+   - Check for extra spaces, newlines, or special characters
+   - Verify the key hasn't expired or been regenerated
+
+2. **Check Encryption Algorithm**
+   - Current implementation uses AES-256-CBC with direct key usage (per Pesepay docs)
+   - Key: 32-character encryption key used directly (not hashed)
+   - IV: First 16 characters of encryption key (not random)
+   - If encryption still fails:
+     - Verify encryption key is exactly 32 characters
+     - Ensure IV is correctly derived from first 16 characters of key
+     - Check base64 encoding/decoding
+     - Compare with Pesepay's official SDK output
+
+3. **Compare with Pesepay SDK**
+   - Use Pesepay's official SDK (Python/Ruby) to encrypt the same test payload
+   - Compare the encrypted output with your implementation
+   - Adjust the implementation to match Pesepay's output
+
+4. **Debug Steps**
+   - Check edge function logs for detailed error messages
+   - Log the encryption key (first/last few characters only for security)
+   - Verify the payload structure matches Pesepay's expected format
+   - Test encryption/decryption separately with a known payload
+
+5. **Common Issues**
+   - **Wrong key format**: Ensure the key is exactly 32 characters and used directly (not hashed)
+   - **IV mismatch**: CRITICAL - IV must be first 16 characters of encryption key (not random!)
+   - **Key length**: Encryption key must be at least 32 characters
+   - **Encoding issues**: Check base64 encoding/decoding
+   - **Payload structure**: Ensure JSON structure matches Pesepay's specification
 
 #### Issue 2: Authentication Errors
 
@@ -264,13 +296,57 @@ WHERE link_code = 'YOUR_LINK_CODE';
 - Create a subscription link
 - Test recurring payment setup (if applicable)
 
-## Step 9: Encryption Testing
+## Step 9: Encryption Implementation Details
 
-### Verify Encryption Implementation
+### Encryption Algorithm
 
-The encryption needs to match Pesepay's exact specification. Test:
+The integration implements **AES-256-CBC** encryption for Pesepay payloads according to Pesepay documentation:
 
-1. **Encrypt a test payload**
+- **Algorithm**: AES-256-CBC (Advanced Encryption Standard with Cipher Block Chaining)
+- **Key**: Your 32 character long encryption key (used directly, not hashed)
+- **IV (Initialization Vector)**: The first 16 characters of your encryption key (NOT random!)
+- **Output Format**: Base64 encoded string containing IV + encrypted data
+
+**Important**: The IV is derived from the encryption key itself, not generated randomly. This is a critical requirement from Pesepay.
+
+### Implementation Details
+
+The encryption functions are located in `supabase/functions/pesepay-submit-order/index.ts`:
+
+1. **`encryptPayload(payload, encryptionKey)`**
+   - Validates encryption key is at least 32 characters
+   - Converts payload to JSON string
+   - Uses encryption key directly (first 32 characters)
+   - Gets IV from first 16 characters of encryption key (per Pesepay spec)
+   - Encrypts using AES-256-CBC
+   - Combines IV + encrypted data
+   - Returns base64 encoded string
+
+2. **`decryptPayload(encryptedPayload, encryptionKey)`**
+   - Validates encryption key is at least 32 characters
+   - Decodes base64 string
+   - Extracts IV (first 16 bytes) and encrypted data
+   - Uses encryption key directly (first 32 characters)
+   - Decrypts using AES-256-CBC
+   - Parses JSON and returns object
+
+### Important Notes
+
+✅ **Encryption implementation follows Pesepay documentation:**
+- Key: Used directly (32 characters), not hashed
+- IV: First 16 characters of encryption key (not random)
+- Algorithm: AES-256-CBC
+- Mode: CBC
+
+If encryption still fails:
+- Verify your encryption key is exactly 32 characters
+- Ensure the key matches what Pesepay provided
+- Check that the key hasn't been modified (no extra spaces, newlines)
+- Compare with Pesepay's official SDK (Python/Ruby) if available
+
+### Testing Encryption
+
+1. **Test with a sample payload**:
    ```javascript
    const testPayload = {
      amountDetails: { amount: 100, currencyCode: "USD" },
@@ -288,9 +364,14 @@ The encryption needs to match Pesepay's exact specification. Test:
    ```
 
 2. **Compare with Pesepay SDK**
-   - Use Pesepay's Python/Ruby SDK to encrypt same payload
-   - Compare encrypted outputs
-   - Adjust encryption algorithm if different
+   - Use Pesepay's Python/Ruby SDK to encrypt the same payload
+   - Compare encrypted outputs byte-by-byte
+   - If different, adjust the encryption implementation accordingly
+
+3. **Verify Round-Trip**
+   - Encrypt a test payload
+   - Decrypt it back
+   - Verify the decrypted payload matches the original
 
 ## Step 10: Production Readiness Checklist
 
@@ -312,25 +393,35 @@ Before going live:
 ## Troubleshooting Tips
 
 1. **Enable Debug Logging**
-   - Add console.log statements in edge functions
-   - Log encrypted payloads (be careful with sensitive data)
-   - Log decrypted responses
+   - Edge functions automatically log encryption/decryption steps
+   - Check Supabase Dashboard → Edge Functions → Logs
+   - Look for "Payload encrypted successfully" or "Decryption failed" messages
+   - ⚠️ Never log full encryption keys or decrypted sensitive data in production
 
 2. **Test Encryption Separately**
-   - Create a test script to verify encryption
-   - Compare with Pesepay's examples
+   - The encryption functions can be tested independently
+   - Create a test edge function or script to verify encryption/decryption
+   - Compare encrypted output with Pesepay's SDK output
 
 3. **Verify API Endpoints**
-   - Confirm base URL is correct
-   - Check if sandbox URL differs from production
+   - Confirm base URLs are correct (sandbox vs. production)
+   - Check if endpoints match Pesepay documentation exactly
+   - Verify HTTP methods (POST vs. GET) and headers
 
-4. **Check Currency Codes**
-   - Verify currency codes match Pesepay's supported currencies
-   - Test with different currencies
+4. **Check Authentication**
+   - Verify Integration Key format in Authorization header
+   - Confirm if Pesepay uses token-based auth or direct key auth
+   - Check if "Bearer " prefix is needed
 
 5. **Payment Method Codes**
-   - Confirm exact payment method codes with Pesepay
+   - Verify exact payment method codes with Pesepay
+   - Current mapping: `mobile_money` → `MOBILE_MONEY`, `bank_transfer` → `BANK_TRANSFER`
+   - Add other methods as needed (CARD, etc.)
    - Test each payment method
+
+6. **Check Currency Codes**
+   - Verify currency codes match Pesepay's supported currencies
+   - Test with different currencies
 
 ## Getting Help
 
@@ -355,11 +446,29 @@ If you encounter issues:
 
 Once testing is successful:
 
-1. Update encryption implementation if needed
-2. Remove any debug/fallback code
-3. Configure production credentials
-4. Set environment to "production"
-5. Test with small real payment
-6. Monitor for first few transactions
-7. Set up monitoring/alerts
+1. **Verify Encryption Implementation**
+   - Confirm encryption/decryption works correctly with Pesepay
+   - If issues persist, compare with Pesepay SDK and adjust algorithm if needed
+
+2. **Update API Endpoints**
+   - Replace placeholder URLs with actual Pesepay endpoints
+   - Verify sandbox and production URLs are correct
+   - Update all edge functions consistently
+
+3. **Verify Authentication Method**
+   - Confirm if Pesepay uses token-based auth or direct Integration Key
+   - Update all functions to use the correct authentication method
+   - Remove unused authentication code if not needed
+
+4. **Production Readiness**
+   - Configure production credentials
+   - Set environment to "production" in database
+   - Test with small real payment first
+   - Monitor logs for first few transactions
+   - Set up monitoring/alerts for payment failures
+
+5. **Documentation**
+   - Update any custom configurations
+   - Document any deviations from standard implementation
+   - Keep notes on encryption algorithm if different from standard
 

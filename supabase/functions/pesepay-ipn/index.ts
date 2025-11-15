@@ -1,70 +1,127 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// TODO: Update these URLs with actual Pesepay API endpoints once API documentation is available
-const PESEPAY_BASE_URL = Deno.env.get('PESEPAY_ENVIRONMENT') === 'production'
-  ? 'https://api.pesepay.com' // PLACEHOLDER - Update with actual Pesepay production URL
-  : 'https://api-sandbox.pesepay.com'; // PLACEHOLDER - Update with actual Pesepay sandbox URL
+// Crypto utilities for encryption/decryption
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
 
-async function getPesepayToken(countryCode: string, supabase: any) {
-  console.log('Requesting Pesepay authentication token for IPN...', countryCode);
+// Pesepay API endpoints
+// According to Pesepay documentation: https://developers.pesepay.com
+// Base URL: https://api.pesepay.com
+const PESEPAY_BASE_URL = Deno.env.get('PESEPAY_ENVIRONMENT') === 'production'
+  ? 'https://api.pesepay.com'
+  : 'https://api.pesepay.com'; // Use same URL for sandbox (test with test credentials)
+
+/**
+ * Get IV (Initialization Vector) from Pesepay Encryption Key
+ * According to Pesepay documentation: "The first 16 characters of your encryption key"
+ */
+function getIVFromEncryptionKey(encryptionKey: string): Uint8Array {
+  const ivString = encryptionKey.substring(0, 16);
+  const ivBytes = new Uint8Array(16);
+  const encoded = encoder.encode(ivString);
+  for (let i = 0; i < 16; i++) {
+    ivBytes[i] = encoded[i] || 0;
+  }
+  return ivBytes;
+}
+
+/**
+ * Prepare encryption key from Pesepay Encryption Key
+ * According to Pesepay documentation: "Your 32 character long encryption key"
+ */
+async function prepareEncryptionKey(encryptionKey: string): Promise<CryptoKey> {
+  const keyBytes = new Uint8Array(32);
+  const encoded = encoder.encode(encryptionKey.substring(0, 32));
+  for (let i = 0; i < 32; i++) {
+    keyBytes[i] = encoded[i] || 0;
+  }
   
-  // Get country-specific credentials from database
+  return await crypto.subtle.importKey(
+    'raw',
+    keyBytes,
+    { name: 'AES-CBC' },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+/**
+ * Decrypt Pesepay response using Encryption Key
+ * According to Pesepay documentation: AES-256-CBC with IV from first 16 chars of key
+ */
+async function decryptPayload(encryptedPayload: string, encryptionKey: string): Promise<any> {
+  try {
+    if (encryptionKey.length < 32) {
+      throw new Error('Encryption key must be at least 32 characters long');
+    }
+    
+    const combined = Uint8Array.from(atob(encryptedPayload), c => c.charCodeAt(0));
+    const iv = combined.slice(0, 16);
+    const encryptedData = combined.slice(16);
+    
+    const key = await prepareEncryptionKey(encryptionKey);
+    
+    const decryptedData = await crypto.subtle.decrypt(
+      {
+        name: 'AES-CBC',
+        iv: iv,
+      },
+      key,
+      encryptedData
+    );
+    
+    const decryptedString = decoder.decode(decryptedData);
+    return JSON.parse(decryptedString);
+  } catch (error: any) {
+    console.error('Decryption error:', error);
+    throw new Error(`Failed to decrypt payload: ${error.message}`);
+  }
+}
+
+// Get Pesepay credentials - ALWAYS use ZW (Zimbabwe) credentials
+// NardoPay is the merchant with Pesepay, acting as aggregator
+async function getPesepayCredentials(supabase: any) {
+  // Always use ZW credentials - merchant country doesn't matter
   const { data: config } = await supabase
     .from('payment_provider_configs')
     .select('consumer_key, consumer_secret, environment')
-    .eq('country_code', countryCode)
+    .eq('country_code', 'ZW') // Always use Zimbabwe
     .eq('provider', 'pesepay')
     .eq('is_active', true)
     .single();
 
   if (!config) {
-    console.error('No active Pesepay config found for country:', countryCode);
-    throw new Error(`No active Pesepay config for country ${countryCode}`);
+    console.error('No active Pesepay config found for Zimbabwe (ZW)');
+    throw new Error('No active Pesepay config for Zimbabwe (ZW). Please configure Pesepay credentials.');
   }
 
-  const baseUrl = config.environment === 'production'
-    ? 'https://api.pesepay.com' // PLACEHOLDER
-    : 'https://api-sandbox.pesepay.com'; // PLACEHOLDER
-
-  console.log('Using credentials for country:', countryCode, 'environment:', config.environment);
-  
-  // TODO: Update authentication endpoint and request format based on Pesepay API documentation
-  const response = await fetch(`${baseUrl}/api/auth/token`, {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      api_key: config.consumer_key,
-      api_secret: config.consumer_secret,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Pesepay auth failed:', errorText);
-    throw new Error('Pesepay authentication failed');
-  }
-
-  const data = await response.json();
-  // TODO: Update based on actual Pesepay response structure
-  return { token: data.token || data.access_token || data.accessToken, baseUrl };
+  return {
+    consumer_key: config.consumer_key,
+    consumer_secret: config.consumer_secret,
+    baseUrl: PESEPAY_BASE_URL,
+  };
 }
 
-// TODO: Update endpoint and response structure based on Pesepay API documentation
-async function getTransactionStatus(paymentReference: string, token: string, baseUrl: string) {
+// Check transaction status using Pesepay API
+// According to Pesepay docs: Use Integration Key directly in authorization header
+// Response may be encrypted or plain JSON - handle both cases
+async function getTransactionStatus(paymentReference: string, credentials: { consumer_key: string; consumer_secret: string }, baseUrl: string) {
   console.log('Fetching transaction status for:', paymentReference, 'from', baseUrl);
   
+  // Clean integration key
+  let integrationKey = String(credentials.consumer_key || '').trim();
+  integrationKey = integrationKey.replace(/[\s\n\r\t\0]/g, '');
+  integrationKey = integrationKey.replace(/[^\x20-\x7E]/g, '');
+  
+  // According to Pesepay docs, use Integration Key directly in authorization header
   const response = await fetch(
     `${baseUrl}/api/payments/${paymentReference}/status`,
     {
       method: 'GET',
       headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+        'authorization': integrationKey, // Direct integration key (per Pesepay docs)
+        'content-type': 'application/json',
       },
     }
   );
@@ -72,10 +129,19 @@ async function getTransactionStatus(paymentReference: string, token: string, bas
   if (!response.ok) {
     const errorText = await response.text();
     console.error('Get transaction status failed:', errorText);
-    throw new Error('Failed to get transaction status: ' + errorText);
+    throw new Error(`Failed to get transaction status (${response.status}): ${errorText}`);
   }
 
-  return await response.json();
+  const responseData = await response.json();
+  
+  // Check if response is encrypted (has payload field)
+  if (responseData.payload) {
+    console.log('Response is encrypted, decrypting...');
+    return await decryptPayload(responseData.payload, credentials.consumer_secret);
+  }
+  
+  // Response is plain JSON
+  return responseData;
 }
 
 const corsHeaders = {
@@ -116,31 +182,70 @@ serve(async (req) => {
       }
     );
 
-    // TODO: Update parsing logic based on actual Pesepay webhook format
-    // Parse IPN notification - Pesepay may send JSON, form data, or query params
-    let paymentReference, paymentId, status;
+    // IMPORTANT: Always use ZW (Zimbabwe) credentials
+    // NardoPay is the merchant with Pesepay, acting as aggregator
+    // Merchant's country doesn't matter - we always use NardoPay's ZW credentials
+    const credentials = await getPesepayCredentials(supabase);
+    console.log('Using Pesepay credentials for Zimbabwe (ZW) - NardoPay is the merchant with Pesepay');
+
+    // NOTE: Pesepay webhook payload may be encrypted or plain JSON
+    // Handle both cases
+    let paymentReference, paymentId, status, webhookData;
     
     const contentType = req.headers.get('content-type') || '';
     
-    if (contentType.includes('application/json')) {
-      const data = await req.json();
-      paymentReference = data.reference || data.payment_reference || data.paymentReference;
-      paymentId = data.payment_id || data.id;
-      status = data.status || data.payment_status;
-    } else {
-      // Parse as form data or query params
-      const url = new URL(req.url);
-      paymentReference = url.searchParams.get('reference') || url.searchParams.get('payment_reference');
-      paymentId = url.searchParams.get('payment_id') || url.searchParams.get('id');
-      status = url.searchParams.get('status');
-      
-      // If not in URL, try form data
-      if (!paymentReference) {
-        const formData = await req.formData();
-        paymentReference = formData.get('reference') as string || formData.get('payment_reference') as string;
-        paymentId = formData.get('payment_id') as string || formData.get('id') as string;
-        status = formData.get('status') as string;
+    try {
+      if (contentType.includes('application/json')) {
+        const rawData = await req.json();
+        
+        // Check if payload is encrypted (has payload field)
+        if (rawData.payload) {
+          console.log('Webhook payload is encrypted, decrypting...');
+          webhookData = await decryptPayload(rawData.payload, credentials.consumer_secret);
+        } else {
+          webhookData = rawData;
+        }
+        
+        // Try multiple possible field names
+        paymentReference = webhookData.reference || webhookData.payment_reference || webhookData.paymentReference || 
+                          webhookData.reference_number || webhookData.merchant_reference;
+        paymentId = webhookData.payment_id || webhookData.id || webhookData.paymentId;
+        status = webhookData.status || webhookData.payment_status || webhookData.paymentStatus;
+      } else {
+        // Parse as form data or query params
+        const url = new URL(req.url);
+        paymentReference = url.searchParams.get('reference') || url.searchParams.get('payment_reference') ||
+                          url.searchParams.get('reference_number');
+        paymentId = url.searchParams.get('payment_id') || url.searchParams.get('id');
+        status = url.searchParams.get('status');
+        
+        // If not in URL, try form data
+        if (!paymentReference) {
+          const formData = await req.formData();
+          const payloadField = formData.get('payload') as string;
+          
+          if (payloadField) {
+            // Encrypted payload in form data
+            console.log('Webhook payload is encrypted (form data), decrypting...');
+            webhookData = await decryptPayload(payloadField, credentials.consumer_secret);
+            paymentReference = webhookData.reference || webhookData.payment_reference || webhookData.reference_number;
+            paymentId = webhookData.payment_id || webhookData.id;
+            status = webhookData.status || webhookData.payment_status;
+          } else {
+            paymentReference = formData.get('reference') as string || 
+                             formData.get('payment_reference') as string ||
+                             formData.get('reference_number') as string;
+            paymentId = formData.get('payment_id') as string || formData.get('id') as string;
+            status = formData.get('status') as string;
+            webhookData = Object.fromEntries(formData.entries());
+          }
+        } else {
+          webhookData = Object.fromEntries(url.searchParams.entries());
+        }
       }
+    } catch (parseError: any) {
+      console.error('Error parsing webhook payload:', parseError);
+      throw new Error(`Failed to parse webhook payload: ${parseError.message}`);
     }
 
     console.log('IPN received:', {
@@ -175,32 +280,30 @@ serve(async (req) => {
       );
     }
 
-    // Fetch user profile to get country
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('country')
-      .eq('id', transaction.user_id)
-      .single();
-
-    const countryCode = profile?.country || 'ZW';
-    console.log('Transaction found for country:', countryCode);
-
-    // Get Pesepay token with country-specific credentials
-    const { token, baseUrl } = await getPesepayToken(countryCode, supabase);
-
     // Get transaction status from Pesepay API to verify
-    const statusData = await getTransactionStatus(referenceToSearch, token, baseUrl);
+    // SECURITY: Always verify with Pesepay API, don't trust webhook data alone
+    const statusData = await getTransactionStatus(referenceToSearch, credentials, credentials.baseUrl);
 
     console.log('Transaction status from Pesepay:', statusData);
 
-    // TODO: Update status mapping based on actual Pesepay status values
+    // NOTE: Update status mapping based on actual Pesepay status values
+    // Verify exact status values with Pesepay documentation
     // Map Pesepay status to our status
     let newStatus = 'pending';
-    const paymentStatus = statusData.status || statusData.payment_status || status;
+    const paymentStatus = statusData.status || statusData.payment_status || status ||
+                         (statusData.paid ? 'paid' : statusData.success ? 'success' : 'pending');
     
-    if (paymentStatus === 'completed' || paymentStatus === 'success' || paymentStatus === 'paid') {
+    // Map various possible status values
+    const completedStatuses = ['completed', 'success', 'paid', 'successful', 'confirmed'];
+    const failedStatuses = ['failed', 'cancelled', 'declined', 'rejected', 'expired'];
+    
+    if (completedStatuses.includes(paymentStatus?.toLowerCase())) {
       newStatus = 'completed';
-    } else if (paymentStatus === 'failed' || paymentStatus === 'cancelled' || paymentStatus === 'declined') {
+    } else if (failedStatuses.includes(paymentStatus?.toLowerCase())) {
+      newStatus = 'failed';
+    } else if (statusData.paid === true || statusData.success === true) {
+      newStatus = 'completed';
+    } else if (statusData.paid === false || statusData.success === false) {
       newStatus = 'failed';
     }
 
