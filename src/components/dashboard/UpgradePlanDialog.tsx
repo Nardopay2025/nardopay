@@ -86,10 +86,9 @@ export const UpgradePlanDialog = ({ open, onOpenChange, currentPlan }: UpgradePl
     setLoading(true);
     
     try {
-      // TODO: Implement actual plan upgrade logic with backend
       toast({
-        title: 'Plan Upgrade Initiated',
-        description: `Upgrading to ${planId} plan. You will be redirected to payment.`,
+        title: 'Coming soon',
+        description: `Plan upgrades to ${planId} are not yet enabled in this environment.`,
       });
       
       onOpenChange(false);

@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, RefreshCw, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { processPayment } from '@/lib/paymentRouter';
+import { getCurrencyForCountry } from '@/lib/countries';
 
 export default function SubscriptionLinkPage() {
   const { linkCode } = useParams();
@@ -18,7 +20,14 @@ export default function SubscriptionLinkPage() {
   const [invoiceSettings, setInvoiceSettings] = useState<any>(null);
   const [subscriberName, setSubscriberName] = useState('');
   const [subscriberEmail, setSubscriberEmail] = useState('');
+  const [subscriberPhone, setSubscriberPhone] = useState('');
+  const [merchantCountry, setMerchantCountry] = useState<string>('KE');
   const [processing, setProcessing] = useState(false);
+  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+  const [customerCountry, setCustomerCountry] = useState<string | null>(null);
+  const [displayCurrency, setDisplayCurrency] = useState<string | null>(null);
+  const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
+  const [fxLoading, setFxLoading] = useState<boolean>(false);
 
   useEffect(() => {
     if (linkCode) {
@@ -47,7 +56,7 @@ export default function SubscriptionLinkPage() {
 
       const { data: profileData } = await supabase
         .from('safe_profiles')
-        .select('business_name, logo_url, primary_color, secondary_color')
+        .select('business_name, logo_url, primary_color, secondary_color, country')
         .eq('id', row.user_id)
         .single();
 
@@ -61,6 +70,7 @@ export default function SubscriptionLinkPage() {
           primary_color: profileData.primary_color || '#8B5CF6',
           secondary_color: profileData.secondary_color || '#7C3AED',
         });
+        setMerchantCountry(profileData.country || 'KE');
       } else {
         setInvoiceSettings({
           business_name: 'NardoPay',
@@ -71,6 +81,83 @@ export default function SubscriptionLinkPage() {
           primary_color: '#8B5CF6',
           secondary_color: '#7C3AED',
         });
+        setMerchantCountry('KE');
+      }
+
+      // Detect customer country via IP and set display currency / converted amount
+      try {
+        setFxLoading(true);
+        const ipRes = await fetch('https://ipapi.co/json');
+        if (ipRes.ok) {
+          const ipData = await ipRes.json();
+          const ipCountry = ipData?.country || null; // ISO2
+          setCustomerCountry(ipCountry);
+
+          const baseCurrency = row.currency;
+          const amountNum =
+            typeof row.amount === 'string' ? parseFloat(row.amount) : Number(row.amount);
+
+          // Special rule: RWF subscriptions opened in Zimbabwe should convert to USD
+          if (ipCountry === 'ZW' && baseCurrency === 'RWF') {
+            const { data: fxData, error: fxError } = await supabase.functions.invoke(
+              'get-exchange-rate',
+              {
+                body: { fromCurrency: 'RWF', toCurrency: 'USD' },
+              },
+            );
+            if (!fxError && fxData?.rate) {
+              const rate = Number(fxData.rate);
+              if (!Number.isNaN(rate) && !Number.isNaN(amountNum) && amountNum > 0) {
+                setDisplayCurrency('USD');
+                setConvertedAmount(amountNum * rate);
+              } else {
+                setDisplayCurrency(baseCurrency);
+                setConvertedAmount(amountNum);
+              }
+            } else {
+              setDisplayCurrency(baseCurrency);
+              setConvertedAmount(amountNum);
+            }
+          } else {
+            // General rule: convert to customer's local currency where supported
+            const localCurrency = getCurrencyForCountry(ipCountry || '');
+            if (localCurrency && baseCurrency && localCurrency !== baseCurrency) {
+              const { data: fxData, error: fxError } = await supabase.functions.invoke(
+                'get-exchange-rate',
+                { body: { fromCurrency: baseCurrency, toCurrency: localCurrency } },
+              );
+              if (!fxError && fxData?.rate) {
+                const rate = Number(fxData.rate);
+                if (!Number.isNaN(rate) && !Number.isNaN(amountNum) && amountNum > 0) {
+                  setDisplayCurrency(localCurrency);
+                  setConvertedAmount(amountNum * rate);
+                } else {
+                  setDisplayCurrency(baseCurrency);
+                  setConvertedAmount(amountNum);
+                }
+              } else {
+                setDisplayCurrency(baseCurrency);
+                setConvertedAmount(amountNum);
+              }
+            } else {
+              setDisplayCurrency(baseCurrency);
+              setConvertedAmount(amountNum);
+            }
+          }
+        } else {
+          const amountNum =
+            typeof row.amount === 'string' ? parseFloat(row.amount) : Number(row.amount);
+          setDisplayCurrency(row.currency);
+          setConvertedAmount(amountNum);
+        }
+      } catch (fxError) {
+        console.error('Error determining FX for subscription link:', fxError);
+        const amountNum =
+          typeof row.amount === 'string' ? parseFloat(row.amount) : Number(row.amount);
+        setDisplayCurrency(row.currency);
+        setConvertedAmount(amountNum);
+      } finally {
+        setFxLoading(false);
       }
     } catch (error: any) {
       console.error('Error fetching subscription link:', error);
@@ -81,16 +168,75 @@ export default function SubscriptionLinkPage() {
     }
   };
 
-  const handleSubscription = (e: React.FormEvent) => {
+  const handleSubscription = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Navigate to checkout page with customer details
-    const params = new URLSearchParams({
-      name: subscriberName,
-      email: subscriberEmail,
-    });
-    
-    navigate(`/pay/subscribe/${linkCode}/checkout?${params.toString()}`);
+    if (!subscriberName || !subscriberEmail || !subscriberPhone) {
+      toast({
+        title: 'Missing Information',
+        description: 'Please enter your name, email address, and mobile number',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Basic E.164-ish phone validation
+    const phoneRegex = /^\+?[1-9]\d{6,14}$/;
+    if (!phoneRegex.test(subscriberPhone.trim())) {
+      toast({
+        title: 'Invalid Phone Number',
+        description:
+          'Enter a valid mobile number with country code (e.g., +254712345678)',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setProcessing(true);
+
+    try {
+      // Decide whether to send converted amount to backend
+      const baseCurrency = subscriptionLink.currency;
+      const amountNum =
+        typeof subscriptionLink.amount === 'string'
+          ? parseFloat(subscriptionLink.amount)
+          : Number(subscriptionLink.amount);
+
+      const hasFx =
+        convertedAmount !== null &&
+        displayCurrency &&
+        displayCurrency !== baseCurrency &&
+        !Number.isNaN(convertedAmount);
+
+      const result = await processPayment({
+        linkType: 'subscription',
+        linkCode: linkCode!,
+        paymentMethod: 'mobile_money', // recurring handled by provider, we just start the mandate
+        merchantCountry,
+        customerDetails: {
+          name: subscriberName,
+          email: subscriberEmail,
+          phone: subscriberPhone,
+        },
+        convertedAmount: hasFx ? convertedAmount || undefined : undefined,
+        convertedCurrency: hasFx ? displayCurrency || undefined : undefined,
+      });
+
+      if (result.success && result.redirect_url) {
+        setPaymentUrl(result.redirect_url);
+      } else {
+        throw new Error(result.error || 'Subscription payment failed');
+      }
+    } catch (error: any) {
+      console.error('Subscription payment error:', error);
+      toast({
+        title: 'Payment Failed',
+        description:
+          error.message || 'Failed to start subscription payment. Please try again.',
+        variant: 'destructive',
+      });
+      setProcessing(false);
+    }
   };
 
   if (loading) {
@@ -104,6 +250,67 @@ export default function SubscriptionLinkPage() {
   const primaryColor = invoiceSettings?.primary_color || '#8B5CF6';
   const secondaryColor = invoiceSettings?.secondary_color || '#7C3AED';
   const businessName = invoiceSettings?.business_name || 'Business';
+  const amountCurrency = displayCurrency || subscriptionLink.currency;
+  const amountValue =
+    convertedAmount ??
+    (subscriptionLink ? parseFloat(subscriptionLink.amount) : 0);
+
+  // Show payment iframe if we have the URL
+  if (paymentUrl) {
+    return (
+      <div
+        className="min-h-screen w-full flex"
+        style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
+      >
+        {/* Left branding panel (hidden on small screens) */}
+        <div
+          className="hidden lg:flex w-1/5 xl:w-1/4 items-center justify-center text-white"
+          style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
+        >
+          <div className="p-6 text-center">
+            {invoiceSettings?.logo_url ? (
+              <img
+                src={invoiceSettings.logo_url}
+                alt={businessName}
+                className="mx-auto h-14 object-contain mb-4"
+              />
+            ) : (
+              <div className="text-2xl font-bold mb-2">{businessName}</div>
+            )}
+            <div className="text-white/80 text-sm">
+              Subscription #{linkCode?.slice(0, 8).toUpperCase()}
+            </div>
+            <div className="text-2xl font-bold mt-2">
+              {amountCurrency} {amountValue.toFixed(2)}
+              {fxLoading ? ' …' : ''}
+            </div>
+          </div>
+        </div>
+
+        {/* Center content: full-height iframe */}
+        <div className="flex-1 min-w-0">
+          <iframe
+            src={paymentUrl}
+            title="Secure Subscription Gateway"
+            className="w-full h-screen border-0 bg-background"
+          />
+        </div>
+
+        {/* Right branding panel (hidden on small screens) */}
+        <div
+          className="hidden lg:flex w-1/5 xl:w-1/4 items-center justify-center text-white"
+          style={{ background: `linear-gradient(135deg, ${secondaryColor}, ${primaryColor})` }}
+        >
+          <div className="p-6 text-center">
+            <div className="text-xs uppercase tracking-wide text-white/80 mb-2">
+              Secured by
+            </div>
+            <div className="text-lg font-semibold">NardoPay</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -153,7 +360,8 @@ export default function SubscriptionLinkPage() {
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Subscription Amount</span>
                 <span className="text-2xl font-bold" style={{ color: primaryColor }}>
-                  {subscriptionLink.currency} {parseFloat(subscriptionLink.amount).toFixed(2)}
+                  {amountCurrency} {amountValue.toFixed(2)}
+                  {fxLoading ? ' …' : ''}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
@@ -200,6 +408,22 @@ export default function SubscriptionLinkPage() {
                   />
                 </div>
               </div>
+
+              <div>
+                <Label htmlFor="phone">Mobile Number (for Subscription Payments)</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={subscriberPhone}
+                  onChange={(e) => setSubscriberPhone(e.target.value)}
+                  placeholder="+254712345678"
+                  required
+                  className="bg-background"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Include country code (e.g., +2547…)
+                </p>
+              </div>
             </div>
 
 
@@ -207,7 +431,8 @@ export default function SubscriptionLinkPage() {
               <p className="flex items-start gap-2">
                 <RefreshCw className="h-4 w-4 mt-0.5 flex-shrink-0" />
                 <span>
-                  By subscribing, you agree to automatic {subscriptionLink.billing_cycle} payments of {subscriptionLink.currency} {parseFloat(subscriptionLink.amount).toFixed(2)}. You can cancel anytime.
+                  By subscribing, you agree to automatic {subscriptionLink.billing_cycle} payments of{' '}
+                  {amountCurrency} {amountValue.toFixed(2)}. You can cancel anytime.
                 </span>
               </p>
             </div>
@@ -226,7 +451,7 @@ export default function SubscriptionLinkPage() {
                   Processing...
                 </>
               ) : (
-                `Subscribe Now - ${subscriptionLink.currency} ${parseFloat(subscriptionLink.amount).toFixed(2)}/${subscriptionLink.billing_cycle}`
+                `Subscribe Now - ${amountCurrency} ${amountValue.toFixed(2)}/${subscriptionLink.billing_cycle}${fxLoading ? ' …' : ''}`
               )}
             </Button>
           </form>

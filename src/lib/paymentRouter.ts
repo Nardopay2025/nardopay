@@ -144,14 +144,27 @@ function selectProvider(request: PaymentRequest): string {
  * regardless of merchant country
  */
 export function isPaymentMethodSupported(paymentMethod: PaymentMethod, country: string): boolean {
+  // Card payments via Paymentology
   if (paymentMethod === 'card') {
     return PAYMENTOLOGY_COUNTRIES.includes(country);
   }
+
+  // Mobile money and bank transfer:
+  // - ZW: always supported via Pesepay (NardoPay as aggregator)
+  // - PESAPAL_COUNTRIES: supported via Pesapal
+  // - Other countries: currently NOT supported to avoid silently routing
+  //   unexpected cross-border flows. Extend this logic explicitly if/when
+  //   you want Pesepay to act as a universal fallback.
   if (paymentMethod === 'mobile_money' || paymentMethod === 'bank_transfer') {
-    // Pesepay is always available (NardoPay aggregates for ZW market)
-    // Pesapal is available for supported countries
-    return PESAPAL_COUNTRIES.includes(country) || true; // Pesepay always available
+    if (country === 'ZW') {
+      return true; // Pesepay
+    }
+    if (PESAPAL_COUNTRIES.includes(country)) {
+      return true;
+    }
+    return false;
   }
+
   return false;
 }
 
@@ -294,18 +307,6 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
       case 'paymentology':
         providerData = formatForPaymentology(request);
         edgeFunction = 'paymentology-accept-payment';
-        break;
-
-      case 'stripe':
-        // TODO: Implement Stripe formatting when ready
-        providerData = {}; // formatForStripe(request);
-        edgeFunction = 'stripe-submit-order';
-        break;
-
-      case 'paystack':
-        // TODO: Implement Paystack formatting when ready
-        providerData = {}; // formatForPaystack(request);
-        edgeFunction = 'paystack-submit-order';
         break;
 
       default:

@@ -2,8 +2,10 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
+const ADMIN_DASHBOARD_ORIGIN = Deno.env.get('ADMIN_DASHBOARD_ORIGIN') || '';
+
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ADMIN_DASHBOARD_ORIGIN || '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -109,10 +111,10 @@ serve(async (req) => {
     integrationKey = integrationKey.replace(/[\s\n\r\t\0]/g, '');
     integrationKey = integrationKey.replace(/[^\x20-\x7E]/g, '');
 
-    // NOTE: Pesepay uses Integration Key directly in authorization header (no token-based auth)
-    // Pesepay may use result_url in payment creation instead of IPN registration
-    // Verify if this endpoint exists or if webhooks are configured differently
-    // Register IPN/webhook URL
+    // NOTE: Pesepay uses Integration Key directly in authorization header (no token-based auth).
+    // If Pesepay changes this contract, update both this function and pesepay-submit-order to
+    // follow the latest documentation.
+    // Register IPN/webhook URL (endpoint and event names should be kept in sync with docs).
     const ipnResponse = await fetch(`${PESEPAY_BASE_URL}/api/webhooks/register`, {
       method: 'POST',
       headers: {
@@ -121,7 +123,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         url: ipnUrl,
-        events: ['payment.completed', 'payment.failed', 'payment.pending'], // TODO: Verify exact event names with Pesepay
+        events: ['payment.completed', 'payment.failed', 'payment.pending'],
       }),
     });
 

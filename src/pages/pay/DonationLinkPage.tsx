@@ -9,6 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Loader2, Heart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { processPayment } from '@/lib/paymentRouter';
+import { getCurrencyForCountry } from '@/lib/countries';
 
 export default function DonationLinkPage() {
   const { linkCode } = useParams();
@@ -24,6 +25,10 @@ export default function DonationLinkPage() {
   const [merchantCountry, setMerchantCountry] = useState<string>('KE');
   const [processing, setProcessing] = useState(false);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+  const [customerCountry, setCustomerCountry] = useState<string | null>(null);
+  const [displayCurrency, setDisplayCurrency] = useState<string | null>(null);
+  const [fxRate, setFxRate] = useState<number | null>(null);
+  const [fxLoading, setFxLoading] = useState<boolean>(false);
 
   useEffect(() => {
     if (linkCode) {
@@ -89,6 +94,70 @@ export default function DonationLinkPage() {
         });
         setMerchantCountry('KE');
       }
+
+      // Detect customer country via IP and set display currency / FX rate
+      try {
+        setFxLoading(true);
+        const ipRes = await fetch('https://ipapi.co/json');
+        if (ipRes.ok) {
+          const ipData = await ipRes.json();
+          const ipCountry = ipData?.country || null; // ISO2
+          setCustomerCountry(ipCountry);
+
+          // Special rule: RWF donation links opened in Zimbabwe should convert to USD
+          if (ipCountry === 'ZW' && row?.currency === 'RWF') {
+            const { data: fxData, error: fxError } = await supabase.functions.invoke('get-exchange-rate', {
+              body: { fromCurrency: 'RWF', toCurrency: 'USD' },
+            });
+            if (!fxError && fxData?.rate) {
+              const rate = Number(fxData.rate);
+              if (!Number.isNaN(rate) && rate > 0) {
+                setDisplayCurrency('USD');
+                setFxRate(rate);
+              } else {
+                setDisplayCurrency(row.currency);
+                setFxRate(null);
+              }
+            } else {
+              setDisplayCurrency(row.currency);
+              setFxRate(null);
+            }
+          } else {
+            // General rule: convert to customer's local currency where supported
+            const localCurrency = getCurrencyForCountry(ipCountry || '');
+            if (localCurrency && row?.currency && localCurrency !== row.currency) {
+              const { data: fxData, error: fxError } = await supabase.functions.invoke('get-exchange-rate', {
+                body: { fromCurrency: row.currency, toCurrency: localCurrency },
+              });
+              if (!fxError && fxData?.rate) {
+                const rate = Number(fxData.rate);
+                if (!Number.isNaN(rate) && rate > 0) {
+                  setDisplayCurrency(localCurrency);
+                  setFxRate(rate);
+                } else {
+                  setDisplayCurrency(row.currency);
+                  setFxRate(null);
+                }
+              } else {
+                setDisplayCurrency(row.currency);
+                setFxRate(null);
+              }
+            } else {
+              setDisplayCurrency(row.currency);
+              setFxRate(null);
+            }
+          }
+        } else {
+          setDisplayCurrency(row.currency);
+          setFxRate(null);
+        }
+      } catch (fxError) {
+        console.error('Error determining FX for donation link:', fxError);
+        setDisplayCurrency(row.currency);
+        setFxRate(null);
+      } finally {
+        setFxLoading(false);
+      }
     } catch (error: any) {
       console.error('Error fetching donation link:', error);
       toast({ title: 'Error', description: 'Donation link not found or inactive', variant: 'destructive' });
@@ -115,6 +184,24 @@ export default function DonationLinkPage() {
     setProcessing(true);
 
     try {
+      const amountNum = parseFloat(donationAmount);
+
+      // Decide if we should send converted amount to backend
+      const isRwfToUsdInZw =
+        customerCountry === 'ZW' &&
+        donationLink?.currency === 'RWF' &&
+        fxRate &&
+        displayCurrency === 'USD';
+
+      const shouldSendConverted =
+        fxRate &&
+        displayCurrency &&
+        displayCurrency !== donationLink?.currency &&
+        amountNum > 0;
+
+      const convertedAmountToSend =
+        shouldSendConverted && fxRate ? amountNum * fxRate : undefined;
+
       const result = await processPayment({
         linkType: 'donation',
         linkCode: linkCode!,
@@ -126,6 +213,8 @@ export default function DonationLinkPage() {
           phone: donorPhone,
         },
         donationAmount,
+        convertedAmount: convertedAmountToSend,
+        convertedCurrency: shouldSendConverted ? displayCurrency : undefined,
       });
 
       if (result.success && result.redirect_url) {
@@ -153,6 +242,11 @@ export default function DonationLinkPage() {
   const secondaryColor = invoiceSettings?.secondary_color || '#DC2626';
   const businessName = invoiceSettings?.business_name || 'Organization';
 
+  const baseCurrency = donationLink.currency;
+  const amountNum = donationAmount ? parseFloat(donationAmount) : 0;
+  const effectiveCurrency = displayCurrency || baseCurrency;
+  const effectiveAmount = fxRate && amountNum > 0 ? amountNum * fxRate : amountNum;
+
   // Show payment iframe if we have the URL
   if (paymentUrl) {
     return (
@@ -172,7 +266,10 @@ export default function DonationLinkPage() {
               <div className="text-2xl font-bold mb-2">{businessName}</div>
             )}
             <div className="text-white/80 text-sm">Donation #{linkCode?.slice(0, 8).toUpperCase()}</div>
-            <div className="text-2xl font-bold mt-2">{donationLink.currency} {parseFloat(donationAmount).toFixed(2)}</div>
+            <div className="text-2xl font-bold mt-2">
+              {effectiveCurrency} {effectiveAmount.toFixed(2)}
+              {fxLoading ? ' …' : ''}
+            </div>
           </div>
         </div>
 
@@ -288,6 +385,12 @@ export default function DonationLinkPage() {
                       required
                       className="bg-background text-lg font-semibold"
                     />
+                    {amountNum > 0 && effectiveCurrency !== baseCurrency && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        You will be charged approximately {effectiveCurrency} {effectiveAmount.toFixed(2)} (base currency {baseCurrency} {amountNum.toFixed(2)})
+                        {fxLoading ? ' …' : ''}
+                      </p>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -348,7 +451,7 @@ export default function DonationLinkPage() {
                       Processing...
                     </>
                   ) : (
-                    `Donate ${donationLink.currency} ${donationAmount ? parseFloat(donationAmount).toFixed(2) : ''}`
+                    `Donate ${effectiveCurrency} ${amountNum > 0 ? effectiveAmount.toFixed(2) : ''}${fxLoading ? ' …' : ''}`
                   )}
                 </Button>
               </form>

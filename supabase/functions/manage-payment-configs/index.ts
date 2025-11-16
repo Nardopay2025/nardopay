@@ -2,8 +2,12 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
+const ADMIN_DASHBOARD_ORIGIN = Deno.env.get('ADMIN_DASHBOARD_ORIGIN') || '';
+
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  // For security, restrict origins to the configured dashboard origin when provided.
+  // Fall back to "*" only if no explicit origin is configured (e.g. during local development).
+  'Access-Control-Allow-Origin': ADMIN_DASHBOARD_ORIGIN || '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 

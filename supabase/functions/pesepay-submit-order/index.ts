@@ -6,8 +6,11 @@ import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
+const APP_ORIGIN = Deno.env.get('PUBLIC_APP_ORIGIN') || '';
+
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  // Restrict to the public app origin when configured; fall back to "*" for local/dev.
+  'Access-Control-Allow-Origin': APP_ORIGIN || '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
@@ -22,6 +25,16 @@ const submitOrderSchema = z.object({
   itemId: z.string().uuid().optional(),
   quantity: z.number().int().positive().max(1000).optional(),
   donationAmount: z.number().positive().max(10000000).optional(),
+  // For catalogue links we can receive a full cart instead of a single item/quantity.
+  // This is an array of items already priced in the catalogue currency.
+  cartItems: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      price: z.number().positive(),
+      quantity: z.number().int().positive().max(1000),
+    }),
+  ).optional(),
   // Currency conversion for cross-border payments (e.g., RWF -> USD for ZW clients)
   // Both must be provided together or both omitted
   convertedAmount: z.number().positive().optional(),
@@ -226,38 +239,10 @@ async function getPesepayCredentials(supabaseClient: any) {
   throw new Error('PESEPAY_NOT_CONFIGURED: Pesepay credentials for Zimbabwe (ZW) are not configured. Please configure Pesepay credentials in payment_provider_configs table.');
 }
 
-// NOTE: Based on code comments, Pesepay may use Integration Key directly in Authorization header
-// rather than token-based authentication. This function is kept for potential future use
-// but may not be needed if Pesepay uses direct key authentication.
-// TODO: Verify with Pesepay documentation if token-based auth is required
-async function getPesepayToken(credentials: { consumer_key: string; consumer_secret: string }) {
-  console.log('Requesting Pesepay authentication token...');
-  
-  // NOTE: This endpoint may not exist if Pesepay uses direct key auth
-  // Update endpoint and request format based on Pesepay API documentation
-  const response = await fetch(`${PESEPAY_BASE_URL}/api/auth/token`, {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      api_key: credentials.consumer_key,
-      api_secret: credentials.consumer_secret,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Pesepay auth error:', errorText);
-    throw new Error(`Pesepay authentication failed: ${errorText}`);
-  }
-
-  const data = await response.json();
-  console.log('Pesepay token received successfully');
-  // Update based on actual Pesepay response structure
-  return data.token || data.access_token || data.accessToken;
-}
+// NOTE: Current integration assumes Pesepay uses the Integration Key directly in the
+// Authorization header (no separate token exchange). If Pesepay introduces a formal
+// token-based auth flow in future, implement it in a dedicated helper instead of
+// leaving speculative, unused code here.
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -321,6 +306,7 @@ serve(async (req) => {
       itemId,
       quantity,
       donationAmount,
+      cartItems,
       convertedAmount,
       convertedCurrency,
     } = validatedData;
@@ -421,6 +407,14 @@ serve(async (req) => {
       description = data.title || 'Donation';
       userId = data.user_id;
       
+      // If a converted amount/currency was provided (e.g., RWF -> USD for ZW clients),
+      // override the original amount/currency for the provider call.
+      if (convertedAmount && convertedCurrency) {
+        console.log(`Using converted donation amount: ${convertedAmount} ${convertedCurrency} (original: ${amount} ${currency})`);
+        amount = Number(convertedAmount);
+        currency = String(convertedCurrency);
+      }
+      
       // Validate required fields
       if (!amount || isNaN(amount) || amount <= 0) {
         throw new Error(`Invalid donation amount: ${donationAmount}`);
@@ -435,26 +429,67 @@ serve(async (req) => {
       // Note: Merchant country is not used for Pesepay credential lookup
       // We always use ZW (Zimbabwe) credentials as NardoPay is the merchant with Pesepay
     } else if (linkType === 'catalogue') {
-      const { data: catalogueItem, error: itemError } = await supabase
-        .from('catalogue_items')
-        .select('*, catalogues!inner(*)')
-        .eq('id', itemId)
+      // For catalogue links we support two patterns:
+      // 1) New flow: full cart passed from frontend (cartItems)
+      // 2) Legacy flow: single itemId + quantity
+      // In both cases, the authoritative currency comes from the catalogue row.
+
+      // First, load the catalogue itself by link code
+      const { data: catalogueRow, error: catalogueError } = await supabase
+        .from('catalogues')
+        .select('*')
+        .eq('link_code', linkCode)
+        .eq('status', 'active')
         .single();
 
-      if (itemError || !catalogueItem) {
-        console.error('[Internal] Catalogue item not found:', itemId, itemError);
+      if (catalogueError || !catalogueRow) {
+        console.error('[Internal] Catalogue not found for link code:', linkCode, catalogueError);
         throw new Error('Resource not found');
       }
 
-      linkData = catalogueItem;
-      amount = parseFloat(catalogueItem.price) * (quantity || 1);
-      currency = catalogueItem.catalogues.currency;
-      description = `${catalogueItem.name || 'Item'} x ${quantity || 1}`;
-      userId = catalogueItem.catalogues.user_id;
+      linkData = catalogueRow;
+      currency = catalogueRow.currency;
+      userId = catalogueRow.user_id;
+
+      if (cartItems && cartItems.length > 0) {
+        // New multi-item cart flow: compute amount from cartItems
+        amount = cartItems.reduce((sum: number, item: any) => {
+          const lineTotal = Number(item.price) * Number(item.quantity || 0);
+          return sum + (isNaN(lineTotal) ? 0 : lineTotal);
+        }, 0);
+        description = `Catalogue purchase (${cartItems.length} item${cartItems.length > 1 ? 's' : ''})`;
+      } else {
+        // Legacy single-item flow using itemId + quantity
+        const { data: catalogueItem, error: itemError } = await supabase
+          .from('catalogue_items')
+          .select('*, catalogues!inner(*)')
+          .eq('id', itemId)
+          .single();
+
+        if (itemError || !catalogueItem) {
+          console.error('[Internal] Catalogue item not found:', itemId, itemError);
+          throw new Error('Resource not found');
+        }
+
+        linkData = catalogueItem;
+        amount = parseFloat(catalogueItem.price) * (quantity || 1);
+        currency = catalogueItem.catalogues.currency;
+        description = `${catalogueItem.name || 'Item'} x ${quantity || 1}`;
+        userId = catalogueItem.catalogues.user_id;
+      }
+      
+      // If a converted amount/currency was provided (e.g., RWF -> USD for ZW clients),
+      // override the original amount/currency for the provider call.
+      if (convertedAmount && convertedCurrency) {
+        console.log(`Using converted catalogue amount: ${convertedAmount} ${convertedCurrency} (original: ${amount} ${currency})`);
+        amount = Number(convertedAmount);
+        currency = String(convertedCurrency);
+      }
       
       // Validate required fields
       if (!amount || isNaN(amount) || amount <= 0) {
-        throw new Error(`Invalid catalogue item price: ${catalogueItem.price}`);
+        console.error('Invalid catalogue amount computed:', { amount, cartItems, itemId, quantity });
+        throw new Error('Invalid catalogue amount. Please check item prices and quantities.');
       }
       if (!currency) {
         throw new Error('Currency is required');
@@ -483,7 +518,17 @@ serve(async (req) => {
       currency = data.currency;
       description = data.plan_name || 'Subscription';
       userId = data.user_id;
-      
+
+      // If a converted amount/currency was provided (e.g., RWF -> USD for ZW clients),
+      // override the original amount/currency for the provider call.
+      if (convertedAmount && convertedCurrency) {
+        console.log(
+          `Using converted subscription amount: ${convertedAmount} ${convertedCurrency} (original: ${amount} ${currency})`,
+        );
+        amount = Number(convertedAmount);
+        currency = String(convertedCurrency);
+      }
+
       // Validate required fields
       if (!amount || isNaN(amount) || amount <= 0) {
         throw new Error(`Invalid subscription amount: ${data.amount}`);
@@ -504,6 +549,22 @@ serve(async (req) => {
     
     // Extract phone number from request body if available
     const customerPhone = (body as any).customerDetails?.phone || '';
+
+    // Map linkType to internal transaction.type:
+    // - 'payment' and 'catalogue' are both recorded as 'payment'
+    // - 'donation' and 'subscription' use their own types
+    // This keeps the DB within the CHECK constraint:
+    //   type IN ('payment','donation','subscription','transfer','deposit','withdrawal')
+    const transactionType =
+      linkType === 'catalogue'
+        ? 'payment'
+        : linkType === 'payment'
+        ? 'payment'
+        : linkType === 'donation'
+        ? 'donation'
+        : linkType === 'subscription'
+        ? 'subscription'
+        : 'payment';
     
     const { error: txError } = await supabase
       .from('transactions')
@@ -512,7 +573,7 @@ serve(async (req) => {
         user_id: userId,
         amount,
         currency,
-        type: linkType,
+        type: transactionType,
         status: 'pending',
         payment_method: paymentMethod,
         description,
@@ -524,6 +585,7 @@ serve(async (req) => {
           payer_phone: customerPhone,
           item_id: itemId,
           quantity: quantity,
+          cart_items: cartItems,
         },
       });
 

@@ -187,10 +187,9 @@ export const SendMoneySection = () => {
         throw new Error('Please enter recipient mobile number');
       }
 
-      // TODO: Implement actual send money logic with backend
       toast({
-        title: 'Transfer Initiated',
-        description: `Sending ${recipientCurrency} ${recipientReceives.toFixed(2)} to ${recipientName}`,
+        title: 'Coming soon',
+        description: 'Send money transfers are not yet available. We will notify you once this feature is live.',
       });
 
       // Reset form

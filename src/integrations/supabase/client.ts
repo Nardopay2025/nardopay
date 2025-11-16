@@ -2,8 +2,16 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://mczqwqsvumfsneoknlep.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jenF3cXN2dW1mc25lb2tubGVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzOTMwNzUsImV4cCI6MjA3NDk2OTA3NX0.iJ-snIA6M1xmdUwxOlx7E2SdxkS3JuUapE7BoCAC4K8";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+  // Fail fast in non-test environments so we don't accidentally talk to the wrong project
+  // or ship with hardcoded credentials.
+  throw new Error(
+    'Supabase client misconfigured: VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY must be set in your environment.',
+  );
+}
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
@@ -13,5 +21,5 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-  }
+  },
 });
